@@ -14,16 +14,27 @@ from ai_superpower.config import load_config
 def cmd_run(args):
     """Start the API server."""
     import uvicorn
-    from ai_superpower.server import app
 
     config = load_config()
     sock_dir = Path(config.socket_path).parent
     sock_dir.mkdir(parents=True, exist_ok=True)
 
+    # Bind to TCP so Windows can access via browser
+    host = args.host or config.host
+    port = args.port or config.port
+
+    print(f"Web UI: http://{host}:{port}")
+    print(f"Web UI (Windows): http://localhost:{port}")
+    print(f"API socket: {config.socket_path}")
+    print(f"Press Ctrl+C to stop")
+    print()
+
     uvicorn.run(
-        app,
-        uds=config.socket_path,
+        "ai_superpower.server:app",
+        host=host,
+        port=port,
         log_level="info",
+        reload=False,
     )
 
 
@@ -246,6 +257,8 @@ def main():
 
     # run
     p_run = subparsers.add_parser("run", help="Start API server")
+    p_run.add_argument("--host", default=None, help="Bind host (default: 0.0.0.0)")
+    p_run.add_argument("--port", type=int, default=None, help="Bind port (default: 8000)")
 
     # project
     p_proj = subparsers.add_parser("project", help="Project commands")

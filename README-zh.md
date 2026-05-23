@@ -11,35 +11,38 @@
 | 变更方式 | 风险 |
 |---------|------|
 | 直接 patch CSV | 绕过校验、污染枚举字段、破坏引用完整性 |
-| 通过 API 写入 | Pydantic校验 + 状态机 + flock锁 + SHA256审计 |
+| 通过 API 写入 | Pydantic校验 + 状态机 + flock锁 + JSON 审计 |
 
 ---
 
 ## 架构图
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    ai-superpower                     │
-│                                                      │
-│  ┌──────────────┐    ┌─────────────────────────────┐ │
-│  │   CLI        │    │       FastAPI 服务器          │ │
-│  │  (Unix Socket)│───→│  ─────────────────────────  │ │
-│  └──────────────┘    │  Pydantic 字段校验            │ │
-│                      │  状态机转换校验                │ │
-│  ┌──────────────┐    │  flock 文件锁                 │ │
-│  │  API 客户端   │────→│  SHA256 审计日志            │ │
-│  │  (HTTP UDS) │    │  引用完整性检查               │ │
-│  └──────────────┘    └──────────────┬──────────────┘ │
-│                                     │                │
-│                          ┌──────────▼──────────┐    │
-│                          │   CSVStorage         │    │
-│                          │  ┌────────────────┐  │    │
-│                          │  │ projects.csv   │  │    │
-│                          │  │ proposals.csv  │  │    │
-│                          │  │ audit.log     │  │    │
-│                          │  └────────────────┘  │    │
-│                          └──────────────────────┘    │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        ai-superpower                         │
+│                                                              │
+│  ┌──────────────┐    ┌──────────────────────────────────┐   │
+│  │  CLI (run)   │───→│          FastAPI 服务器            │   │
+│  └──────────────┘    │  ─────────────────────────────────  │   │
+│                       │  Pydantic 字段校验                   │   │
+│  ┌──────────────┐    │  状态机转换校验                     │   │
+│  │  Web UI      │───→│  flock 文件锁                      │   │
+│  │  (浏览器)     │    │  JSON 字段级审计日志                │   │
+│  └──────────────┘    │  引用完整性检查                      │   │
+│                       └──────────────┬───────────────────┘   │
+│  ┌──────────────┐                   │                        │
+│  │  TUI         │───────────────────┘                        │
+│  │  (交互终端)   │                                              │
+│  └──────────────┘                                              │
+│                              ┌──────────▼──────────┐           │
+│                              │    CSVStorage        │           │
+│                              │  ┌───────────────┐  │           │
+│                              │  │ projects.csv  │  │           │
+│                              │  │ proposals.csv│  │           │
+│                              │  │ audit.log    │  │           │
+│                              │  └───────────────┘  │           │
+│                              └─────────────────────┘           │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -48,14 +51,79 @@
 
 | 机制 | 作用 |
 |------|------|
-| **API 唯一写入路径** | 所有数据变更必须经过 API，CLI 是 API 的封装，直接改 CSV 没有路径 |
+| **API 唯一写入路径** | 所有数据变更必须经过 API，CLI/TUI/Web UI 都是 API 的封装 |
 | **Pydantic 校验** | 写入前校验：ID 格式、枚举值、字符串长度、必填字段 |
-| **状态机转换校验** | `intake→clarifying→prd_pending_confirmation→...→deployed→delivered` 每一步转换都在 API 层校验 |
+| **状态机转换校验** | `intake→clarifying→prd_pending_confirmation→...→deployed→delivered` |
 | **flock 文件锁** | 读并发、写串行化，避免并发写入导致 CSV 部分写入 |
-| **SHA256 审计日志** | 每次写入记录文件校验和（写前+写后），篡改可检测 |
-| **引用完整性** | 创建 proposal 前检查 project_id 是否存在；删除 project 前检查是否有关联 proposal |
+| **JSON 审计日志** | 字段级变更追踪 + 精确回滚（Replay） |
+| **引用完整性** | project_id 存在性检查 + 级联删除保护 |
 | **Unix Socket 传输** | 服务器绑定 Unix socket，不暴露网络端口 |
 | **API Key 认证** | 每次请求必须带 `X-API-Key` Header |
+
+---
+
+## 三种使用方式
+
+### 1. CLI（命令行）
+
+```bash
+# 启动 API 服务器
+ai-superpower run
+
+# 项目管理
+ai-superpower project create --name "我的项目"
+ai-superpower project list
+ai-superpower project get PRJ-20250523-001
+ai-superpower project delete PRJ-20250523-001
+
+# 提案管理
+ai-superpower proposal create --title "新功能" --owner alice --project-id PRJ-20250523-001 --stage ideation
+ai-superpower proposal list
+ai-superpower proposal list --project-id PRJ-20250523-001 --status intake
+ai-superpower proposal get P-20250523-001
+ai-superpower proposal update-status P-20250523-001 --status clarifying
+ai-superpower proposal update-fields P-20250523-001 --field title="新标题"
+ai-superpower proposal delete P-20250523-001
+
+# 工具
+ai-superpower validate --data '{"project_id":"PRJ-20250523-001","stage":"ideation"}'
+ai-superpower audit --page 1 --page-size 100
+ai-superpower sync-to-index
+
+# 审计回滚（Replay / Undo）
+ai-superpower replay --last 10 --dry-run    # 查看最近 10 条操作（不执行）
+ai-superpower replay --undo P-20250523-001  # 回滚该实体的最后一次操作
+
+# 备份
+ai-superpower backup           # 立即备份
+ai-superpower backup --list    # 列出所有备份
+ai-superpower backup --restore db_backup_20260523_120000  # 恢复备份
+```
+
+### 2. Web UI（浏览器）
+
+```bash
+# 启动服务器
+ai-superpower run
+# 然后浏览器打开 http://localhost:8000
+```
+
+| 路由 | 说明 |
+|------|------|
+| `/` | 仪表盘（项目/提案/审计统计） |
+| `/web/projects` | 项目列表 + 新建/编辑 |
+| `/web/proposals` | 提案列表 + 筛选 + 新建 |
+| `/web/audit` | 审计日志时间线 |
+| `/web/settings` | 配置页面 |
+
+### 3. TUI（交互终端）
+
+```bash
+# 启动交互式终端界面
+ai-superpower tui
+```
+
+TUI 提供全屏交互界面：项目/提案浏览、搜索、创建、状态更新、审计日志查看。
 
 ---
 
@@ -90,6 +158,8 @@
 |------|------|------|
 | POST | `/validate` | 干跑校验（不写入） |
 | GET | `/audit` | 查询审计日志 |
+| POST | `/replay` | 回滚操作（dry-run/undo） |
+| POST | `/backup` | 立即备份 |
 
 ---
 
@@ -97,43 +167,14 @@
 
 ```
 intake → clarifying → prd_pending_confirmation → approved_for_dev
-                                                      ↓
-              in_tdd_test ←────────────────────── in_dev
-                   ↓                                   ↓
-          in_test_acceptance ←──────────────── needs_revision
-                 ↓      ↓
-           accepted   test_failed
-               ↓
-           deployed → delivered
-```
-
----
-
-## CLI 命令
-
-```bash
-# 启动服务器
-ai-superpower run
-
-# 项目
-ai-superpower project create --name "我的项目"
-ai-superpower project list
-ai-superpower project get PRJ-20250523-001
-ai-superpower project delete PRJ-20250523-001
-
-# 提案
-ai-superpower proposal create --title "新功能" --owner alice --project-id PRJ-20250523-001 --stage ideation
-ai-superpower proposal list
-ai-superpower proposal list --project-id PRJ-20250523-001 --status intake
-ai-superpower proposal get P-20250523-001
-ai-superpower proposal update-status P-20250523-001 --status clarifying
-ai-superpower proposal update-fields P-20250523-001 --field title="新标题"
-ai-superpower proposal delete P-20250523-001
-
-# 工具
-ai-superpower validate --data '{"project_id":"PRJ-20250523-001","stage":"ideation"}'
-ai-superpower audit --page 1 --page-size 100
-ai-superpower sync-to-index
+                                                       ↓
+             in_tdd_test ←────────────────────── in_dev
+                  ↓                                   ↓
+         in_test_acceptance ←──────────────── needs_revision
+                ↓      ↓
+          accepted   test_failed
+              ↓
+          deployed → delivered
 ```
 
 ---
@@ -154,9 +195,8 @@ cat > ~/.ai-superpower/config.toml << 'EOF'
 [api]
 key = "your-32-char-hex-key"
 socket_path = "/var/run/ai-superpower/api.sock"
-proposals_csv = "/home/hermes/proposals/proposals.csv"
-projects_csv = "/home/hermes/proposals/projects.csv"
-audit_log = "/home/hermes/proposals/audit.log"
+data_dir = "/home/hermes/ai-superpower/db"
+allow_delete = false
 EOF
 ```
 
@@ -182,16 +222,28 @@ sudo systemctl enable --now ai-superpower
 |------|--------|------|
 | `key` | （必填） | API Key — 32位十六进制字符串 |
 | `socket_path` | `/var/run/ai-superpower/api.sock` | Unix socket 路径 |
-| `proposals_csv` | `/home/hermes/proposals/proposals.csv` | 提案 CSV 路径 |
-| `projects_csv` | `/home/hermes/proposals/projects.csv` | 项目 CSV 路径 |
-| `audit_log` | `/home/hermes/proposals/audit.log` | 审计日志路径 |
+| `data_dir` | `/home/hermes/ai-superpower/db` | 数据目录（projects.csv、proposals.csv、audit.log） |
+| `allow_delete` | `false` | 是否允许 DELETE 操作（默认 403 拒绝） |
+
+### 备份配置
+
+```toml
+[backup]
+enabled = false                 # 设为 true 启用定时备份
+frequency = "1h"              # 1h / 6h / 1d
+max_copies = 48
+local_path = "/home/hermes/ai-superpower/backups"
+remote_repo = ""               # Git 远程仓库（可选）
+remote_branch = "backup"       # 远程分支（可选）
+api_key = ""                   # 备用 API Key（可选）
+```
 
 ---
 
 ## 测试
 
 ```bash
-# 运行全部测试（107 个）
+# 运行全部测试（117 个）
 python3 -m pytest tests/ -v
 
 # 运行单个测试文件
@@ -202,25 +254,31 @@ python3 -m pytest tests/test_models.py -v
 
 ---
 
-## 数据流
+## 项目结构
 
 ```
-CLI 命令
-    ↓
-APIClient（Unix Socket HTTP）
-    ↓
-FastAPI（Header 认证：X-API-Key）
-    ↓
-CSVStorage（flock 文件锁）
-    ↓
-  ├─ Pydantic 字段校验（格式、枚举、长度）
-  ├─ 状态机转换校验（不允许非法跳转）
-  ├─ 引用完整性检查（project_id 必须存在）
-  └─ SHA256 审计日志（写入前+写入后校验和）
-    ↓
-CSV 文件（projects.csv / proposals.csv）
-    ↓
-audit.log（记录 sha_before → sha_after）
+ai-superpower/
+├── src/ai_superpower/
+│   ├── models.py        # Pydantic 模型、状态机、枚举定义
+│   ├── config.py       # 从 ~/.ai-superpower/config.toml 加载配置
+│   ├── storage.py      # CSVStorage：flock + JSON 审计 + 校验
+│   ├── server.py      # FastAPI 服务器（9 个端点 + Web UI）
+│   ├── client.py       # APIClient：Unix socket HTTP 客户端
+│   ├── cli.py          # CLI 入口（project/proposal/audit/replay/backup）
+│   ├── tui.py          # Curses TUI（交互终端界面）
+│   ├── replay.py       # 审计日志回滚 / 字段级 undo
+│   ├── backup.py       # 备份调度器：本地 + Git 远程
+│   ├── templates/      # Jinja2 HTML 模板（Web UI）
+│   └── static/         # CSS + JS（Web UI）
+├── tests/
+│   ├── test_models.py  # 37 个测试
+│   ├── test_storage.py # 41 个测试
+│   ├── test_api.py     # 39 个测试
+│   └── test_client.py  # 10 个测试（mock 方式）
+├── deploy/
+│   ├── ai-superpower.service  # systemd 服务单元
+│   └── install.sh              # 安装脚本
+└── pyproject.toml
 ```
 
 ---
@@ -229,29 +287,12 @@ audit.log（记录 sha_before → sha_after）
 
 1. **无直接文件写入路径** — `CSVStorage` 是内部模块，外部客户端只能通过 API 操作数据
 2. **flock 独占锁** — 所有写操作获取排他锁，并发写入被串行化，不存在部分写入
-3. **SHA256 校验和** — 每次写操作在 audit.log 记录文件哈希前后值，篡改可检测
+3. **JSON 字段级审计** — 每次写入记录每个字段的变更前后值，可精确回滚
 4. **状态机校验** — 即使绕过 CLI，也无法通过 API 进行非法的状态转换
 5. **Pydantic 模型校验** — 非法枚举值、错误 ID 格式、缺失必填字段在写入前被拒绝
 
 ---
 
-## 项目结构
+## 在线文档
 
-```
-ai-superpower/
-├── src/ai_superpower/
-│   ├── models.py        # Pydantic 模型、状态机、枚举定义
-│   ├── config.py        # 从 ~/.ai-superpower/config.toml 加载配置
-│   ├── storage.py       # CSVStorage：flock + 审计 + 校验
-│   ├── server.py        # FastAPI 服务器（9 个端点）
-│   ├── client.py        # APIClient：Unix socket HTTP 客户端
-│   └── cli.py           # CLI 入口
-├── tests/
-│   ├── test_models.py   # 37 个测试
-│   ├── test_storage.py  # 41 个测试
-│   └── test_api.py      # 29 个测试
-├── deploy/
-│   ├── ai-superpower.service  # systemd 服务单元
-│   └── install.sh             # 安装脚本
-└── pyproject.toml
-```
+GitHub Pages: https://yeluo45.github.io/ai-superpower/

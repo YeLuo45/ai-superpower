@@ -14,6 +14,8 @@ _DEFAULT_DATA_DIR = Path(__file__).parent.parent.parent / "db"
 class APIConfig:
     key: str
     socket_path: str = "/var/run/ai-superpower/api.sock"
+    host: str = "0.0.0.0"
+    port: int = 8000
     data_dir: str = ""
     proposals_csv: str = ""
     projects_csv: str = ""
@@ -62,10 +64,13 @@ def load_config() -> APIConfig:
 
     api_section = data.get("api", {})
     backup_section = data.get("backup", {})
+    server_section = data.get("server", {})
 
     return APIConfig(
         key=api_section.get("key", ""),
         socket_path=api_section.get("socket_path", "/var/run/ai-superpower/api.sock"),
+        host=server_section.get("host", "0.0.0.0"),
+        port=server_section.get("port", 8000),
         data_dir=api_section.get("data_dir", ""),
         proposals_csv=api_section.get("proposals_csv", ""),
         projects_csv=api_section.get("projects_csv", ""),
