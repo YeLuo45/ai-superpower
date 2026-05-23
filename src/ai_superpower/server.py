@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException, Query, Response
+from fastapi import FastAPI, Header, HTTPException, Query, Response, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -263,25 +263,25 @@ def list_audit(
 # ─── Web UI ───────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
-def web_index():
-    return _templates.TemplateResponse("index.html", {"request": {}})
+def web_index(request: Request):
+    return _templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/web/projects", response_class=HTMLResponse)
-def web_projects():
-    return _templates.TemplateResponse("projects/list.html", {"request": {}})
+def web_projects(request: Request):
+    return _templates.TemplateResponse("projects/list.html", {"request": request})
 
 
 @app.get("/web/proposals", response_class=HTMLResponse)
-def web_proposals():
-    return _templates.TemplateResponse("proposals/list.html", {"request": {}})
+def web_proposals(request: Request):
+    return _templates.TemplateResponse("proposals/list.html", {"request": request})
 
 
 @app.get("/web/audit", response_class=HTMLResponse)
-def web_audit():
-    return _templates.TemplateResponse("audit.html", {"request": {}})
+def web_audit(request: Request):
+    return _templates.TemplateResponse("audit.html", {"request": request})
 
 
 @app.get("/web/settings", response_class=HTMLResponse)
-def web_settings():
-    return _templates.TemplateResponse("settings.html", {"request": {}})
+def web_settings(request: Request):
+    return _templates.TemplateResponse("settings.html", {"request": request})
