@@ -20,6 +20,7 @@ class ConfigForTest:
         self.audit_log = str(tmp_path / "audit.log")
         self.key = "test-key-456"
         self.socket_path = str(tmp_path / "api.sock")
+        self.allow_delete = True
 
 
 @pytest.fixture
@@ -37,6 +38,7 @@ def storage(config):
         'audit_log': config.audit_log,
         'key': config.key,
         'socket_path': config.socket_path,
+        'allow_delete': True,
     })()
     s = CSVStorage(cfg)
     s.create_project(name="API Test Project")
@@ -56,6 +58,7 @@ def client(storage, config):
         'audit_log': config.audit_log,
         'key': config.key,
         'socket_path': config.socket_path,
+        'allow_delete': True,
     })()
     config_mod.load_config = lambda: test_cfg
     server_mod.load_config = lambda: test_cfg
@@ -146,10 +149,24 @@ class TestProjectEndpoints:
         assert r.status_code == 400
 
     def test_delete_project(self, client):
+        # allow_delete=True in storage fixture
         r = client.post("/projects", json={"name": "Delete Me"}, headers=AUTH_HEADER)
         project_id = r.json()["id"]
         r = client.delete(f"/projects/{project_id}", headers=AUTH_HEADER)
         assert r.status_code == 204
+
+    def test_delete_project_disabled_returns_403(self, client):
+        """DELETE returns 403 when allow_delete=False on storage config."""
+        import ai_superpower.server as server_mod
+        # Patch storage.config.allow_delete on the pre-initialized storage
+        original_allow = server_mod._storage.config.allow_delete
+        server_mod._storage.config.allow_delete = False
+        try:
+            r = client.delete("/projects/PRJ-NONEXISTENT-999", headers=AUTH_HEADER)
+            assert r.status_code == 403
+            assert "allow_delete" in r.json()["detail"]
+        finally:
+            server_mod._storage.config.allow_delete = original_allow
 
     def test_delete_project_not_found(self, client):
         r = client.delete("/projects/PRJ-20991231-999", headers=AUTH_HEADER)

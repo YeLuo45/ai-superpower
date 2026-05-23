@@ -14,6 +14,7 @@ class APIConfig:
     proposals_csv: str = "/home/hermes/proposals/proposals.csv"
     projects_csv: str = "/home/hermes/proposals/projects.csv"
     audit_log: str = "/home/hermes/proposals/audit.log"
+    allow_delete: bool = False
 
 
 def load_config() -> APIConfig:
@@ -36,4 +37,5 @@ def load_config() -> APIConfig:
         proposals_csv=api_section.get("proposals_csv", "/home/hermes/proposals/proposals.csv"),
         projects_csv=api_section.get("projects_csv", "/home/hermes/proposals/projects.csv"),
         audit_log=api_section.get("audit_log", "/home/hermes/proposals/audit.log"),
+        allow_delete=api_section.get("allow_delete", False),
     )

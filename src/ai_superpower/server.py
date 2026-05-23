@@ -121,6 +121,12 @@ def update_project(project_id: str, data: ProjectUpdate, _ak: str = Header(..., 
 @app.delete("/projects/{project_id}", status_code=204)
 def delete_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
+    if not s.config.allow_delete:
+        raise HTTPException(
+            status_code=403,
+            detail="Delete operation is disabled. Set `allow_delete = true` in config.toml to enable.",
+        )
+    s = get_storage()
     try:
         deleted = s.delete_project(project_id)
         if not deleted:
@@ -198,6 +204,12 @@ def update_proposal_fields(proposal_id: str, data: ProposalUpdate, _ak: str = He
 
 @app.delete("/proposals/{proposal_id}", status_code=204)
 def delete_proposal(proposal_id: str, _ak: str = Header(..., alias="X-API-Key")):
+    s = get_storage()
+    if not s.config.allow_delete:
+        raise HTTPException(
+            status_code=403,
+            detail="Delete operation is disabled. Set `allow_delete = true` in config.toml to enable.",
+        )
     s = get_storage()
     deleted = s.delete_proposal(proposal_id)
     if not deleted:

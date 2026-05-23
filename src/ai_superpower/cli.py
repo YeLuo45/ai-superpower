@@ -197,6 +197,13 @@ def cmd_sync_to_index(args):
     print(f"Synced {len(all_proposals)} proposals to {index_path}")
 
 
+def cmd_tui(args):
+    """Launch the interactive TUI."""
+    import curses
+    from ai_superpower.tui import main as tui_main
+    curses.wrapper(tui_main)
+
+
 def main():
     parser = argparse.ArgumentParser(prog="ai-superpower", description="ai-superpower API CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -294,6 +301,10 @@ def main():
     p_sync = subparsers.add_parser("sync-to-index", help="Sync proposal-index.md from API")
     p_sync.set_defaults(func=cmd_sync_to_index)
 
+    # tui
+    p_tui = subparsers.add_parser("tui", help="Launch interactive TUI")
+    p_tui.set_defaults(func=cmd_tui)
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -302,6 +313,8 @@ def main():
 
     if args.command == "run":
         cmd_run(args)
+    elif args.command == "tui":
+        cmd_tui(args)
     elif hasattr(args, "func"):
         args.func(args)
     else:
