@@ -67,16 +67,20 @@ async function loadDashboard() {
 async function loadProjects(page = 1) {
     currentPage.projects = page;
     const search = document.getElementById('search')?.value || '';
-    const qs = `page=${page}&page_size=20` + (search ? `&search=${encodeURIComponent(search)}` : '');
+    const sortBy = document.getElementById('sort-by')?.value || 'last_update';
+    const sortOrder = document.getElementById('sort-order')?.value || 'desc';
+    const qs = `page=${page}&page_size=20` + (search ? `&search=${encodeURIComponent(search)}` : '') + `&sort_by=${sortBy}&sort_order=${sortOrder}`;
     try {
         const data = await api('GET', '/projects?' + qs);
         const el = document.getElementById('project-list');
         if (!data.items.length) { el.innerHTML = '<p>No projects found.</p>'; }
         else {
-            el.innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Proposals</th><th>Git Repo</th><th>Last Update</th></tr></thead><tbody>
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Proposals</th><th>Git Repo</th><th>PRJ URL</th><th>Create At</th><th>Last Update</th></tr></thead><tbody>
                 ${data.items.map(p => `<tr onclick="showProjectDetail('${p.id}')" style="cursor:pointer">
                     <td>${p.id}</td><td>${esc(p.name)}</td><td>${p.proposal_count}</td>
-                    <td>${p.git_repo || '—'}</td><td>${p.last_update}</td>
+                    <td>${p.git_repo ? `<a href="${esc(p.git_repo)}" target="_blank">${esc(p.git_repo)}</a>` : '—'}</td>
+                    <td>${p.prj_url ? `<a href="${esc(p.prj_url)}" target="_blank">${esc(p.prj_url)}</a>` : '—'}</td>
+                    <td>${p.create_at || '—'}</td><td>${p.last_update}</td>
                 </tr>`).join('')}
             </tbody></table>`;
         }
@@ -87,7 +91,7 @@ async function loadProjects(page = 1) {
 async function showProjectDetail(id) {
     try {
         const p = await api('GET', '/projects/' + id);
-        alert(`Project: ${p.name}\nID: ${p.id}\nGit: ${p.git_repo || '-'}\nPath: ${p.local_path || '-'}\nDesc: ${p.description || '-'}\nProposals: ${p.proposal_count}\nUpdated: ${p.last_update}`);
+        alert(`Project: ${p.name}\nID: ${p.id}\nGit: ${p.git_repo || '-'}\nPRJ URL: ${p.prj_url || '-'}\nPath: ${p.local_path || '-'}\nDesc: ${p.description || '-'}\nProposals: ${p.proposal_count}\nCreated: ${p.create_at || '-'}\nUpdated: ${p.last_update}`);
     } catch (e) { alert(e.message); }
 }
 
@@ -101,12 +105,14 @@ function showProjectForm(id) {
             document.getElementById('git_repo').value = p.git_repo || '';
             document.getElementById('local_path').value = p.local_path || '';
             document.getElementById('description').value = p.description || '';
+            document.getElementById('prj_url').value = p.prj_url || '';
         });
     } else {
         document.getElementById('name').value = '';
         document.getElementById('git_repo').value = '';
         document.getElementById('local_path').value = '';
         document.getElementById('description').value = '';
+        document.getElementById('prj_url').value = '';
     }
     document.getElementById('modal').classList.remove('hidden');
 }
@@ -134,9 +140,12 @@ async function loadProposals(page = 1) {
     currentPage.proposals = page;
     const search = document.getElementById('search')?.value || '';
     const status = document.getElementById('status-filter')?.value || '';
+    const sortBy = document.getElementById('sort-by')?.value || 'last_update';
+    const sortOrder = document.getElementById('sort-order')?.value || 'desc';
     const qs = `page=${page}&page_size=20` +
         (search ? `&search=${encodeURIComponent(search)}` : '') +
-        (status ? `&status=${encodeURIComponent(status)}` : '');
+        (status ? `&status=${encodeURIComponent(status)}` : '') +
+        `&sort_by=${sortBy}&sort_order=${sortOrder}`;
     try {
         const data = await api('GET', '/proposals?' + qs);
         const el = document.getElementById('proposal-list');

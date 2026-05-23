@@ -98,6 +98,7 @@ def create_project(data: ProjectCreate, _ak: str = Header(..., alias="X-API-Key"
         git_repo=data.git_repo or "",
         local_path=data.local_path or "",
         description=data.description or "",
+        prj_url=data.prj_url or "",
     )
 
 
@@ -106,10 +107,15 @@ def list_projects(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     search: Optional[str] = None,
+    sort_by: Optional[str] = Query("last_update", description="Sort field: last_update, create_at, name, id"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     _ak: str = Header(..., alias="X-API-Key"),
 ):
     s = get_storage()
-    items, total = s.list_projects(page=page, page_size=page_size, search=search)
+    items, total = s.list_projects(
+        page=page, page_size=page_size, search=search,
+        sort_by=sort_by, sort_order=sort_order,
+    )
     return PageResponse(total=total, page=page, page_size=page_size, items=[i.model_dump() for i in items])
 
 
@@ -171,6 +177,8 @@ def list_proposals(
     owner: Optional[str] = None,
     search: Optional[str] = None,
     stage: Optional[str] = None,
+    sort_by: Optional[str] = Query("last_update", description="Sort field: last_update, create_at, title, id, status, stage"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     _ak: str = Header(..., alias="X-API-Key"),
 ):
     s = get_storage()
@@ -178,6 +186,7 @@ def list_proposals(
         page=page, page_size=page_size,
         project_id=project_id, status=status,
         owner=owner, search=search, stage=stage,
+        sort_by=sort_by, sort_order=sort_order,
     )
     return PageResponse(total=total, page=page, page_size=page_size, items=[i.model_dump() for i in items])
 

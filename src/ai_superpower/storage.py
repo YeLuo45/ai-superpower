@@ -90,6 +90,8 @@ class CSVStorage:
         page: int = 1,
         page_size: int = 50,
         search: Optional[str] = None,
+        sort_by: Optional[str] = "last_update",
+        sort_order: Optional[str] = "desc",
     ) -> tuple[list[Project], int]:
         """List projects with pagination."""
         with self._lock_file(self.config.projects_csv, "shared"):
@@ -101,6 +103,12 @@ class CSVStorage:
         if search:
             search_lower = search.lower()
             filtered = [r for r in filtered if search_lower in r.get("name", "").lower()]
+
+        # Sort
+        valid_sort_keys = ["last_update", "create_at", "name", "id"]
+        sort_field = sort_by if sort_by in valid_sort_keys else "last_update"
+        reverse = sort_order == "desc"
+        filtered.sort(key=lambda r: r.get(sort_field, ""), reverse=reverse)
 
         total = len(filtered)
         start = (page - 1) * page_size
@@ -121,7 +129,7 @@ class CSVStorage:
         return None
 
     def create_project(
-        self, name: str, git_repo: str = "", local_path: str = "", description: str = ""
+        self, name: str, git_repo: str = "", local_path: str = "", description: str = "", prj_url: str = ""
     ) -> Project:
         """Create a new project with auto-generated ID."""
         today = datetime.now().strftime("%Y-%m-%d")
@@ -149,6 +157,8 @@ class CSVStorage:
             local_path=local_path,
             description=description,
             last_update=today,
+            create_at=today,
+            prj_url=prj_url,
         )
 
         with self._lock_file(self.config.projects_csv, "exclusive"):
@@ -247,6 +257,8 @@ class CSVStorage:
         owner: Optional[str] = None,
         search: Optional[str] = None,
         stage: Optional[str] = None,
+        sort_by: Optional[str] = "last_update",
+        sort_order: Optional[str] = "desc",
     ) -> tuple[list[Proposal], int]:
         """List proposals with pagination and filters."""
         with self._lock_file(self.config.proposals_csv, "shared"):
@@ -273,6 +285,12 @@ class CSVStorage:
         if search:
             search_lower = search.lower()
             filtered = [r for r in filtered if search_lower in r.get("title", "").lower()]
+
+        # Sort
+        valid_sort_keys = ["last_update", "create_at", "title", "id", "status", "stage"]
+        sort_field = sort_by if sort_by in valid_sort_keys else "last_update"
+        reverse = sort_order == "desc"
+        filtered.sort(key=lambda r: r.get(sort_field, ""), reverse=reverse)
 
         total = len(filtered)
         start = (page - 1) * page_size

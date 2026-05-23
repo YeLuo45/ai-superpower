@@ -20,6 +20,16 @@
         </div>
         <div class="search-bar">
             <input type="text" id="search" placeholder="Search projects..." oninput="loadProjects(1)">
+            <select id="sort-by" onchange="loadProjects(1)">
+                <option value="last_update">Last Update</option>
+                <option value="create_at">Create Time</option>
+                <option value="name">Name</option>
+                <option value="id">ID</option>
+            </select>
+            <select id="sort-order" onchange="loadProjects(1)">
+                <option value="desc">↓ Desc</option>
+                <option value="asc">↑ Asc</option>
+            </select>
         </div>
         <div id="project-list">Loading...</div>
         <div id="pagination"></div>
@@ -34,6 +44,7 @@
                 <input type="hidden" id="project-id">
                 <label>Name <input type="text" id="name" required></label>
                 <label>Git Repo <input type="text" id="git_repo"></label>
+                <label>PRJ URL <input type="text" id="prj_url" placeholder="https://user.github.io/project/"></label>
                 <label>Local Path <input type="text" id="local_path"></label>
                 <label>Description <textarea id="description"></textarea></label>
                 <button type="submit">Save</button>

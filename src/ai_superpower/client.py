@@ -125,8 +125,8 @@ class APIClient:
         result = self._do_request("POST", "/projects", body)
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
-    def list_projects(self, page: int = 1, page_size: int = 50, search: str = None):
-        params = f"page={page}&page_size={page_size}"
+    def list_projects(self, page: int = 1, page_size: int = 50, search: str = None, sort_by: str = "last_update", sort_order: str = "desc"):
+        params = f"page={page}&page_size={page_size}&sort_by={sort_by}&sort_order={sort_order}"
         if search:
             params += f"&search={urllib.parse.quote(search)}"
         result = self._do_request("GET", f"/projects?{params}")
@@ -147,9 +147,10 @@ class APIClient:
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
     def list_proposals(self, page: int = 1, page_size: int = 50, project_id: str = None,
-                       status: str = None, owner: str = None, search: str = None, stage: str = None):
+                       status: str = None, owner: str = None, search: str = None, stage: str = None,
+                       sort_by: str = "last_update", sort_order: str = "desc"):
         import urllib.parse
-        params = f"page={page}&page_size={page_size}"
+        params = f"page={page}&page_size={page_size}&sort_by={sort_by}&sort_order={sort_order}"
         if project_id:
             params += f"&project_id={urllib.parse.quote(project_id)}"
         if status:

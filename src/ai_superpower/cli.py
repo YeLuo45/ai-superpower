@@ -65,12 +65,14 @@ def cmd_project_create(args):
         git_repo=args.git_repo or "",
         local_path=args.local_path or "",
         description=args.description or "",
+        prj_url=args.prj_url or "",
     )
 
 
 def cmd_project_list(args):
     client = APIClient()
-    client.list_projects(page=args.page, page_size=args.page_size, search=args.search)
+    client.list_projects(page=args.page, page_size=args.page_size, search=args.search,
+                         sort_by=args.sort_by, sort_order=args.sort_order)
 
 
 def cmd_project_get(args):
@@ -123,6 +125,8 @@ def cmd_proposal_list(args):
         owner=args.owner,
         search=args.search,
         stage=args.stage,
+        sort_by=args.sort_by,
+        sort_order=args.sort_order,
     )
 
 
@@ -287,6 +291,7 @@ def main():
     p_proj_create = proj_sub.add_parser("create", help="Create project")
     p_proj_create.add_argument("--name", required=True)
     p_proj_create.add_argument("--git-repo", default="")
+    p_proj_create.add_argument("--prj-url", dest="prj_url", default="")
     p_proj_create.add_argument("--local-path", dest="local_path", default="")
     p_proj_create.add_argument("--description", default="")
     p_proj_create.set_defaults(func=cmd_project_create)
@@ -295,6 +300,8 @@ def main():
     p_proj_list.add_argument("--page", type=int, default=1)
     p_proj_list.add_argument("--page-size", dest="page_size", type=int, default=50)
     p_proj_list.add_argument("--search", default=None)
+    p_proj_list.add_argument("--sort-by", default="last_update")
+    p_proj_list.add_argument("--sort-order", default="desc")
     p_proj_list.set_defaults(func=cmd_project_list)
 
     p_proj_get = proj_sub.add_parser("get", help="Get project")
@@ -333,6 +340,8 @@ def main():
     p_prop_list.add_argument("--owner", default=None)
     p_prop_list.add_argument("--search", default=None)
     p_prop_list.add_argument("--stage", default=None)
+    p_prop_list.add_argument("--sort-by", default="last_update")
+    p_prop_list.add_argument("--sort-order", default="desc")
     p_prop_list.set_defaults(func=cmd_proposal_list)
 
     p_prop_get = prop_sub.add_parser("get", help="Get proposal")

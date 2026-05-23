@@ -1,77 +1,77 @@
-id,name,proposal_count,git_repo,local_path,description,last_update
-PRJ-20250416-001,todolist,1,https://github.com/YeLuo45/todo-list,/home/hermes/projects/todolist,Todo/任务管理Web应用,2026-05-22
-PRJ-20250416-002,game-1024,6,https://github.com/YeLuo45/game-1024,/home/hermes/projects/game-1024,2048类益智游戏,2026-05-20
-PRJ-20250418-003,harness-desktop,2,https://github.com/YeLuo45/harness-desktop,/home/hermes/projects/harness-desktop,Electron桌面应用，用于AI Agent协作管理,2026-05-20
-PRJ-20260412-008,ai-subscription,38,https://github.com/YeLuo45/ai-subscription,/home/hermes/projects/ai-subscription,AI内容订阅聚合平台，支持多源订阅和智能推荐,2026-05-20
-PRJ-20260412-009,ai-stock-simulation,8,https://github.com/YeLuo45/ai-stock-simulation,/home/hermes/projects/ai-stock-simulation,AI股票模拟交易平台，提供虚拟交易和回测功能,2026-05-20
-PRJ-20260417-001,prj-proposals-manager,2,https://github.com/YeLuo45/prj-proposals-manager,/home/hermes/projects/prj-proposals-manager,提案管理系统，用于跟踪和管理项目提案生命周期,2026-05-22
-PRJ-20260417-002,android-hello,20,https://github.com/YeLuo45/android-hello,/home/hermes/projects/android-hello,Android入门示例应用,2026-05-20
-PRJ-20260418-001,monopoly3d,1,https://github.com/YeLuo45/monopoly3d,/home/hermes/projects/monopoly3d,3D大富翁游戏，支持多人联机对战,2026-05-20
-PRJ-20260418-002,creative-drawing-board,40,https://github.com/YeLuo45/creative-drawing-board,/home/hermes/projects/creative-drawing-board,在线创意画板，支持多种绘画工具和分享功能,2026-05-20
-PRJ-20260418-004,future-little-leaders,2,https://github.com/YeLuo45/future-little-leaders,/home/hermes/projects/future-little-leaders,儿童领导力培养互动游戏,2026-05-20
-PRJ-20260418-005,todo-app,1,https://github.com/YeLuo45/todo-app,/home/hermes/projects/todolist-app,待办事项应用,2026-05-20
-PRJ-20260419-001,temple-run,3,https://github.com/YeLuo45/temple-run,/home/hermes/projects/temple-run,神庙逃亡类跑酷游戏,2026-05-20
-PRJ-20260419-002,tank-battle,1,https://github.com/YeLuo45/tank-battle,/home/hermes/projects/tank-battle,坦克大战射击游戏,2026-05-20
-PRJ-20260419-003,dont-step-white,11,https://github.com/YeLuo45/dont-step-white,/home/hermes/projects/dont-step-white,别踩白块节奏游戏,2026-05-20
-PRJ-20260419-005,TradingAgents-CN,1,https://github.com/YeLuo45/TradingAgents-CN,/home/hermes/projects/TradingAgents-CN,交易Agent中文设计文档项目,2026-05-20
-PRJ-20260419-007,ai-creator-h5,3,https://github.com/YeLuo45/ai-creator-h5,/home/hermes/projects/ai-creator-h5,AI创作助手H5应用,2026-05-20
-PRJ-20260420-001,snake-battle,4,https://github.com/YeLuo45/snake-battle,/home/hermes/projects/snake-battle,贪吃蛇对战游戏,2026-05-20
-PRJ-20260420-002,pixel-pal-web,7,https://github.com/YeLuo45/pixel-pal-web,/home/hermes/projects/pixel-pal-web,像素风格AI伙伴Web应用，支持人格定制和情感交互,2026-05-22
-PRJ-20260421-001,card-game-prototype,2,https://github.com/YeLuo45/card-game-prototype,/home/hermes/projects/card-game-prototype,卡牌游戏原型，支持多种卡牌规则和战斗系统,2026-05-22
-PRJ-20260421-003,personalClaw,1,https://github.com/YeLuo45/personalClaw,/home/hermes/projects/personalClaw,个人工具项目,2026-05-20
-PRJ-20260422-001,ai-novel-assistant,4,https://github.com/YeLuo45/ai-novel-assistant,/home/hermes/projects/ai-novel-assistant,AI小说创作助手，提供故事生成和写作辅助,2026-05-20
-PRJ-20260423-001,room-escape-puzzle,1,https://github.com/YeLuo45/room-escape-puzzle,/home/hermes/projects/room-escape-puzzle,密室逃脱解谜游戏,2026-05-20
-PRJ-20260423-002,little-garden,1,https://github.com/YeLuo45/little-garden,/home/hermes/projects/little-garden,小型花园养成游戏,2026-05-20
-PRJ-20260423-005,hermes-agent-collab,16,https://github.com/YeLuo45/hermes-agent-collab,/home/hermes/projects/hermes-agent-collab,Hermes Agent协作系统，用于多Agent任务协调,2026-05-22
-PRJ-20260424-001,OpenMAIC,1,https://github.com/YeLuo45/OpenMAIC,/home/hermes/projects/OpenMAIC,多智能体交互课堂设计项目,2026-05-21
-PRJ-20260424-004,match3-puzzle,1,https://github.com/YeLuo45/match3-puzzle,/home/hermes/projects/match3-puzzle,三消益智游戏,2026-05-20
-PRJ-20260426-003,calculator-app,1,https://github.com/YeLuo45/calculator-app,/home/hermes/projects/calculator-app,计算器应用,2026-05-20
-PRJ-20260427-001,preschool-puzzle,1,https://github.com/YeLuo45/preschool-puzzle,/home/hermes/projects/preschool-puzzle,学龄前儿童拼图游戏,2026-05-20
-PRJ-20260428-001,whack-a-mole-3d,6,https://github.com/YeLuo45/whack-a-mole-3d,/home/hermes/projects/whack-a-mole-3d,3D打地鼠游戏,2026-05-20
-PRJ-20260428-002,flight-chess-3d,3,https://github.com/YeLuo45/flight-chess-3d,/home/hermes/projects/flight-chess-3d,3D飞行棋游戏,2026-05-20
-PRJ-20260430-001,tower-baby-guard,5,https://github.com/YeLuo45/tower-baby-guard,/home/hermes/projects/tower-baby-guard,塔防宝宝监护游戏,2026-05-20
-PRJ-20260430-002,doc-editor,14,https://github.com/YeLuo45/doc-editor,/home/hermes/projects/doc-editor,文档编辑器，支持多人协作编辑,2026-05-22
-PRJ-20260509-001,trading-agents-design,1,https://github.com/YeLuo45/trading-agents-design,/home/hermes/projects/trading-agents-design,交易Agent设计规范文档,2026-05-20
-PRJ-20260509-002,trending-dashboard,0,https://github.com/YeLuo45/trending-dashboard,/home/hermes/projects/trending-dashboard,GitHub Trending数据仪表板，实时展示热门项目,2026-05-20
-PRJ-20260511-003,AstrBot,1,https://github.com/YeLuo45/AstrBot,/home/hermes/projects/AstrBot,AstrBot机器人设计文档,2026-05-21
-PRJ-20260511-004,autoagent-design,1,https://github.com/YeLuo45/AutoAgent,/home/hermes/projects/autoagent-design,AutoAgent自动化Agent设计文档,2026-05-20
-PRJ-20260511-005,bmad-method-design,1,https://github.com/YeLuo45/BMAD-METHOD,/home/hermes/projects/bmad-method-design,BMAD方法论设计文档,2026-05-20
-PRJ-20260511-006,chatdev-design,1,https://github.com/YeLuo45/ChatDev,/home/hermes/projects/chatdev-design,ChatDev团队协作设计文档,2026-05-20
-PRJ-20260511-007,deepcode-design,1,https://github.com/YeLuo45/DeepCode,/home/hermes/projects/deepcode-design,DeepCode代码分析设计文档,2026-05-20
-PRJ-20260511-008,deepseek-coder-design,1,https://github.com/YeLuo45/DeepSeek-Coder,/home/hermes/projects/deepseek-coder-design,DeepSeek Coder编程助手设计文档,2026-05-20
-PRJ-20260514-001,deepseek-tui-design,0,https://github.com/YeLuo45/deepseek-tui-design,/home/hermes/projects/deepseek-tui-design,DeepSeek TUI终端界面设计文档,2026-05-17
-PRJ-20260514-002,openspec,0,https://github.com/YeLuo45/openspec-design,/home/hermes/projects/openspec,OpenSpec规范设计文档,2026-05-21
-PRJ-20260514-003,ai-hedge-fund-design,0,https://github.com/YeLuo45/ai-hedge-fund-design,/home/hermes/projects/ai-hedge-fund-design,AI对冲基金设计文档,2026-05-17
-PRJ-20260514-004,crawl4ai-design,0,https://github.com/YeLuo45/crawl4ai-design,/home/hermes/projects/crawl4ai-design,Crawl4ai网页抓取引擎设计文档,2026-05-17
-PRJ-20260514-005,n8n-design,0,https://github.com/YeLuo45/n8n-design,/home/hermes/projects/n8n-design,n8n工作流自动化设计文档,2026-05-17
-PRJ-20260514-006,nanobot-design,0,https://github.com/YeLuo45/nanobot-design,/home/hermes/projects/nanobot-design,Nanobot纳米机器人设计文档,2026-05-17
-PRJ-20260515-001,thunderbolt-design,0,https://github.com/YeLuo45/thunderbolt-design,/home/hermes/projects/thunderbolt-design,Thunderbolt性能优化设计文档,2026-05-20
-PRJ-20260515-002,media-crawler-design,0,https://github.com/YeLuo45/MediaCrawler,/home/hermes/projects/media-crawler-design,媒体爬虫设计文档,2026-05-20
-PRJ-20260515-003,claude-howto-design,0,https://github.com/YeLuo45/claude-howto-design,/home/hermes/projects/claude-howto-design,Claude使用指南设计文档,2026-05-20
-PRJ-20260515-004,generic-agent-design,0,https://github.com/YeLuo45/generic-agent-design,/home/hermes/projects/generic-agent-design,通用Agent架构设计文档,2026-05-20
-PRJ-20260515-005,open-space-design,0,https://github.com/YeLuo45/open-space-design,/home/hermes/projects/open-space-design,开放空间设计文档,2026-05-20
-PRJ-20260515-006,scrapling-design,0,https://github.com/YeLuo45/scrapling-design,/home/hermes/projects/scrapling-design,Scrapling网页抓取设计文档,2026-05-20
-PRJ-20260515-007,claude-code-design,0,https://github.com/YeLuo45/claude-code-design,/home/hermes/projects/claude-code-design,Claude Code编程工具设计文档,2026-05-20
-PRJ-20260515-008,claudecodesrc-design,0,https://github.com/YeLuo45/claudecodesrc-design,/home/hermes/projects/claudecodesrc-design,Claude Code源码分析设计文档,2026-05-20
-PRJ-20260515-009,freqtrade-develop-design,0,https://github.com/YeLuo45/freqtrade-develop-design,/home/hermes/projects/freqtrade-develop-design,Freqtrade量化交易开发设计文档,2026-05-20
-PRJ-20260515-010,langcli-design,0,https://github.com/YeLuo45/langcli-design,/home/hermes/projects/langcli-design,命令行语言工具设计文档,2026-05-20
-PRJ-20260515-011,ohmypi-design,0,https://github.com/YeLuo45/ohmypi-design,/home/hermes/projects/ohmypi-design,树莓派物联网设计文档,2026-05-20
-PRJ-20260515-012,opencode-dev-design,0,https://github.com/YeLuo45/opencode-dev-design,/home/hermes/projects/opencode-dev-design,OpenCode开发环境设计文档,2026-05-20
-PRJ-20260515-013,ruflo-design,0,https://github.com/YeLuo45/ruflo-design,/home/hermes/projects/ruflo-design,Ruflo设计文档,2026-05-20
-PRJ-20260516-001,hermes-agent-design,0,https://github.com/YeLuo45/hermes-agent-design,/home/hermes/projects/hermes-agent-design,Hermes Agent核心框架设计文档,2026-05-20
-PRJ-20260516-002,cultivation-simulator,3,https://github.com/YeLuo45/cultivation-simulator,/home/hermes/projects/cultivation-simulator,修仙模拟器游戏，支持角色养成和境界突破,2026-05-22
-PRJ-20260516-003,github-repo-manager,2,https://github.com/YeLuo45/github-repo-manager,/home/hermes/projects/github-repo-manager,GitHub仓库管理器，Electron桌面应用,2026-05-20
-PRJ-20260516-014,ai-creator-miniprogram,0,https://github.com/YeLuo45/ai-creator-miniprogram,/home/hermes/projects/ai-creator-miniprogram,AI创作助手小程序,2026-05-20
-PRJ-20260516-015,amblyopia-training,0,https://github.com/YeLuo45/amblyopia-training,/home/hermes/projects/amblyopia-training,弱视训练应用,2026-05-20
-PRJ-20260516-016,animal-forest,0,https://github.com/YeLuo45/animal-forest,/home/hermes/projects/animal-forest,动物森林养成游戏,2026-05-20
-PRJ-20260516-017,ash-echoes,0,https://github.com/YeLuo45/ash-echoes,/home/hermes/projects/ash-echoes,Ash Echoes 2D动作RPG游戏,2026-05-20
-PRJ-20260516-018,soulshooter,0,https://github.com/YeLuo45/soulshooter,/home/hermes/projects/soulshooter,灵魂射击游戏,2026-05-20
-PRJ-20260516-019,super-mario-3d,0,https://github.com/YeLuo45/super-mario-3d,/home/hermes/projects/super-mario-3d,3D超级玛丽游戏,2026-05-20
-PRJ-20260521-001,prj-plants-vs-zombies,1,https://github.com/YeLuo45/plants-vs-zombies.git,/home/hermes/projects/prj-plants-vs-zombies,Plants vs Zombies Python+Pygame game,2026-05-21
-PRJ-20260521-002,price-compare,5,https://github.com/YeLuo45/price-compare,/home/hermes/projects/price-compare,多平台比价软件，商品价格比较与购物决策辅助,2026-05-22
-PRJ-20260521-003,openclaw,1,https://github.com/YeLuo45/openclaw,/home/hermes/workspace-dev/proposals/openclaw,OpenClaw 官网与文档站点,2026-05-21
-PRJ-20260522-001,future-little-leaders-admin,0,https://github.com/YeLuo45/future-little-leaders-admin,,future-little-leaders 家长后台管理,2026-05-22
-PRJ-20260522-002,future-little-leaders-sdk-python,0,https://github.com/YeLuo45/future-little-leaders-sdk-python,,future-little-leaders Python SDK,2026-05-22
-PRJ-20260522-003,ai-price-compare,0,https://github.com/YeLuo45/ai-price-compare,,AI多平台比价App (React Native),2026-05-22
-PRJ-20260523-001,ai-superpower,3,,,,2026-05-23
-PRJ-20260523-002,Test Project XYZ,0,https://github.com/test,,Updated desc,2026-05-23
+id,name,proposal_count,git_repo,local_path,description,last_update,create_at,prj_url
+PRJ-20250416-001,todolist,1,https://github.com/YeLuo45/todo-list,/home/hermes/projects/todolist,Todo/任务管理Web应用,2026-05-22,,
+PRJ-20250416-002,game-1024,6,https://github.com/YeLuo45/game-1024,/home/hermes/projects/game-1024,2048类益智游戏,2026-05-20,,
+PRJ-20250418-003,harness-desktop,2,https://github.com/YeLuo45/harness-desktop,/home/hermes/projects/harness-desktop,Electron桌面应用，用于AI Agent协作管理,2026-05-20,,
+PRJ-20260412-008,ai-subscription,38,https://github.com/YeLuo45/ai-subscription,/home/hermes/projects/ai-subscription,AI内容订阅聚合平台，支持多源订阅和智能推荐,2026-05-20,,
+PRJ-20260412-009,ai-stock-simulation,8,https://github.com/YeLuo45/ai-stock-simulation,/home/hermes/projects/ai-stock-simulation,AI股票模拟交易平台，提供虚拟交易和回测功能,2026-05-20,,
+PRJ-20260417-001,prj-proposals-manager,2,https://github.com/YeLuo45/prj-proposals-manager,/home/hermes/projects/prj-proposals-manager,提案管理系统，用于跟踪和管理项目提案生命周期,2026-05-22,,
+PRJ-20260417-002,android-hello,20,https://github.com/YeLuo45/android-hello,/home/hermes/projects/android-hello,Android入门示例应用,2026-05-20,,
+PRJ-20260418-001,monopoly3d,1,https://github.com/YeLuo45/monopoly3d,/home/hermes/projects/monopoly3d,3D大富翁游戏，支持多人联机对战,2026-05-20,,
+PRJ-20260418-002,creative-drawing-board,40,https://github.com/YeLuo45/creative-drawing-board,/home/hermes/projects/creative-drawing-board,在线创意画板，支持多种绘画工具和分享功能,2026-05-20,,
+PRJ-20260418-004,future-little-leaders,2,https://github.com/YeLuo45/future-little-leaders,/home/hermes/projects/future-little-leaders,儿童领导力培养互动游戏,2026-05-20,,
+PRJ-20260418-005,todo-app,1,https://github.com/YeLuo45/todo-app,/home/hermes/projects/todolist-app,待办事项应用,2026-05-20,,
+PRJ-20260419-001,temple-run,3,https://github.com/YeLuo45/temple-run,/home/hermes/projects/temple-run,神庙逃亡类跑酷游戏,2026-05-20,,
+PRJ-20260419-002,tank-battle,1,https://github.com/YeLuo45/tank-battle,/home/hermes/projects/tank-battle,坦克大战射击游戏,2026-05-20,,
+PRJ-20260419-003,dont-step-white,11,https://github.com/YeLuo45/dont-step-white,/home/hermes/projects/dont-step-white,别踩白块节奏游戏,2026-05-20,,
+PRJ-20260419-005,TradingAgents-CN,1,https://github.com/YeLuo45/TradingAgents-CN,/home/hermes/projects/TradingAgents-CN,交易Agent中文设计文档项目,2026-05-20,,
+PRJ-20260419-007,ai-creator-h5,3,https://github.com/YeLuo45/ai-creator-h5,/home/hermes/projects/ai-creator-h5,AI创作助手H5应用,2026-05-20,,
+PRJ-20260420-001,snake-battle,4,https://github.com/YeLuo45/snake-battle,/home/hermes/projects/snake-battle,贪吃蛇对战游戏,2026-05-20,,
+PRJ-20260420-002,pixel-pal-web,7,https://github.com/YeLuo45/pixel-pal-web,/home/hermes/projects/pixel-pal-web,像素风格AI伙伴Web应用，支持人格定制和情感交互,2026-05-22,,
+PRJ-20260421-001,card-game-prototype,2,https://github.com/YeLuo45/card-game-prototype,/home/hermes/projects/card-game-prototype,卡牌游戏原型，支持多种卡牌规则和战斗系统,2026-05-22,,
+PRJ-20260421-003,personalClaw,1,https://github.com/YeLuo45/personalClaw,/home/hermes/projects/personalClaw,个人工具项目,2026-05-20,,
+PRJ-20260422-001,ai-novel-assistant,4,https://github.com/YeLuo45/ai-novel-assistant,/home/hermes/projects/ai-novel-assistant,AI小说创作助手，提供故事生成和写作辅助,2026-05-20,,
+PRJ-20260423-001,room-escape-puzzle,1,https://github.com/YeLuo45/room-escape-puzzle,/home/hermes/projects/room-escape-puzzle,密室逃脱解谜游戏,2026-05-20,,
+PRJ-20260423-002,little-garden,1,https://github.com/YeLuo45/little-garden,/home/hermes/projects/little-garden,小型花园养成游戏,2026-05-20,,
+PRJ-20260423-005,hermes-agent-collab,16,https://github.com/YeLuo45/hermes-agent-collab,/home/hermes/projects/hermes-agent-collab,Hermes Agent协作系统，用于多Agent任务协调,2026-05-22,,
+PRJ-20260424-001,OpenMAIC,1,https://github.com/YeLuo45/OpenMAIC,/home/hermes/projects/OpenMAIC,多智能体交互课堂设计项目,2026-05-21,,
+PRJ-20260424-004,match3-puzzle,1,https://github.com/YeLuo45/match3-puzzle,/home/hermes/projects/match3-puzzle,三消益智游戏,2026-05-20,,
+PRJ-20260426-003,calculator-app,1,https://github.com/YeLuo45/calculator-app,/home/hermes/projects/calculator-app,计算器应用,2026-05-20,,
+PRJ-20260427-001,preschool-puzzle,1,https://github.com/YeLuo45/preschool-puzzle,/home/hermes/projects/preschool-puzzle,学龄前儿童拼图游戏,2026-05-20,,
+PRJ-20260428-001,whack-a-mole-3d,6,https://github.com/YeLuo45/whack-a-mole-3d,/home/hermes/projects/whack-a-mole-3d,3D打地鼠游戏,2026-05-20,,
+PRJ-20260428-002,flight-chess-3d,3,https://github.com/YeLuo45/flight-chess-3d,/home/hermes/projects/flight-chess-3d,3D飞行棋游戏,2026-05-20,,
+PRJ-20260430-001,tower-baby-guard,5,https://github.com/YeLuo45/tower-baby-guard,/home/hermes/projects/tower-baby-guard,塔防宝宝监护游戏,2026-05-20,,
+PRJ-20260430-002,doc-editor,14,https://github.com/YeLuo45/doc-editor,/home/hermes/projects/doc-editor,文档编辑器，支持多人协作编辑,2026-05-22,,
+PRJ-20260509-001,trading-agents-design,1,https://github.com/YeLuo45/trading-agents-design,/home/hermes/projects/trading-agents-design,交易Agent设计规范文档,2026-05-20,,
+PRJ-20260509-002,trending-dashboard,0,https://github.com/YeLuo45/trending-dashboard,/home/hermes/projects/trending-dashboard,GitHub Trending数据仪表板，实时展示热门项目,2026-05-20,,
+PRJ-20260511-003,AstrBot,1,https://github.com/YeLuo45/AstrBot,/home/hermes/projects/AstrBot,AstrBot机器人设计文档,2026-05-21,,
+PRJ-20260511-004,autoagent-design,1,https://github.com/YeLuo45/AutoAgent,/home/hermes/projects/autoagent-design,AutoAgent自动化Agent设计文档,2026-05-20,,
+PRJ-20260511-005,bmad-method-design,1,https://github.com/YeLuo45/BMAD-METHOD,/home/hermes/projects/bmad-method-design,BMAD方法论设计文档,2026-05-20,,
+PRJ-20260511-006,chatdev-design,1,https://github.com/YeLuo45/ChatDev,/home/hermes/projects/chatdev-design,ChatDev团队协作设计文档,2026-05-20,,
+PRJ-20260511-007,deepcode-design,1,https://github.com/YeLuo45/DeepCode,/home/hermes/projects/deepcode-design,DeepCode代码分析设计文档,2026-05-20,,
+PRJ-20260511-008,deepseek-coder-design,1,https://github.com/YeLuo45/DeepSeek-Coder,/home/hermes/projects/deepseek-coder-design,DeepSeek Coder编程助手设计文档,2026-05-20,,
+PRJ-20260514-001,deepseek-tui-design,0,https://github.com/YeLuo45/deepseek-tui-design,/home/hermes/projects/deepseek-tui-design,DeepSeek TUI终端界面设计文档,2026-05-17,,
+PRJ-20260514-002,openspec,0,https://github.com/YeLuo45/openspec-design,/home/hermes/projects/openspec,OpenSpec规范设计文档,2026-05-21,,
+PRJ-20260514-003,ai-hedge-fund-design,0,https://github.com/YeLuo45/ai-hedge-fund-design,/home/hermes/projects/ai-hedge-fund-design,AI对冲基金设计文档,2026-05-17,,
+PRJ-20260514-004,crawl4ai-design,0,https://github.com/YeLuo45/crawl4ai-design,/home/hermes/projects/crawl4ai-design,Crawl4ai网页抓取引擎设计文档,2026-05-17,,
+PRJ-20260514-005,n8n-design,0,https://github.com/YeLuo45/n8n-design,/home/hermes/projects/n8n-design,n8n工作流自动化设计文档,2026-05-17,,
+PRJ-20260514-006,nanobot-design,0,https://github.com/YeLuo45/nanobot-design,/home/hermes/projects/nanobot-design,Nanobot纳米机器人设计文档,2026-05-17,,
+PRJ-20260515-001,thunderbolt-design,0,https://github.com/YeLuo45/thunderbolt-design,/home/hermes/projects/thunderbolt-design,Thunderbolt性能优化设计文档,2026-05-20,,
+PRJ-20260515-002,media-crawler-design,0,https://github.com/YeLuo45/MediaCrawler,/home/hermes/projects/media-crawler-design,媒体爬虫设计文档,2026-05-20,,
+PRJ-20260515-003,claude-howto-design,0,https://github.com/YeLuo45/claude-howto-design,/home/hermes/projects/claude-howto-design,Claude使用指南设计文档,2026-05-20,,
+PRJ-20260515-004,generic-agent-design,0,https://github.com/YeLuo45/generic-agent-design,/home/hermes/projects/generic-agent-design,通用Agent架构设计文档,2026-05-20,,
+PRJ-20260515-005,open-space-design,0,https://github.com/YeLuo45/open-space-design,/home/hermes/projects/open-space-design,开放空间设计文档,2026-05-20,,
+PRJ-20260515-006,scrapling-design,0,https://github.com/YeLuo45/scrapling-design,/home/hermes/projects/scrapling-design,Scrapling网页抓取设计文档,2026-05-20,,
+PRJ-20260515-007,claude-code-design,0,https://github.com/YeLuo45/claude-code-design,/home/hermes/projects/claude-code-design,Claude Code编程工具设计文档,2026-05-20,,
+PRJ-20260515-008,claudecodesrc-design,0,https://github.com/YeLuo45/claudecodesrc-design,/home/hermes/projects/claudecodesrc-design,Claude Code源码分析设计文档,2026-05-20,,
+PRJ-20260515-009,freqtrade-develop-design,0,https://github.com/YeLuo45/freqtrade-develop-design,/home/hermes/projects/freqtrade-develop-design,Freqtrade量化交易开发设计文档,2026-05-20,,
+PRJ-20260515-010,langcli-design,0,https://github.com/YeLuo45/langcli-design,/home/hermes/projects/langcli-design,命令行语言工具设计文档,2026-05-20,,
+PRJ-20260515-011,ohmypi-design,0,https://github.com/YeLuo45/ohmypi-design,/home/hermes/projects/ohmypi-design,树莓派物联网设计文档,2026-05-20,,
+PRJ-20260515-012,opencode-dev-design,0,https://github.com/YeLuo45/opencode-dev-design,/home/hermes/projects/opencode-dev-design,OpenCode开发环境设计文档,2026-05-20,,
+PRJ-20260515-013,ruflo-design,0,https://github.com/YeLuo45/ruflo-design,/home/hermes/projects/ruflo-design,Ruflo设计文档,2026-05-20,,
+PRJ-20260516-001,hermes-agent-design,0,https://github.com/YeLuo45/hermes-agent-design,/home/hermes/projects/hermes-agent-design,Hermes Agent核心框架设计文档,2026-05-20,,
+PRJ-20260516-002,cultivation-simulator,3,https://github.com/YeLuo45/cultivation-simulator,/home/hermes/projects/cultivation-simulator,修仙模拟器游戏，支持角色养成和境界突破,2026-05-22,,
+PRJ-20260516-003,github-repo-manager,2,https://github.com/YeLuo45/github-repo-manager,/home/hermes/projects/github-repo-manager,GitHub仓库管理器，Electron桌面应用,2026-05-20,,
+PRJ-20260516-014,ai-creator-miniprogram,0,https://github.com/YeLuo45/ai-creator-miniprogram,/home/hermes/projects/ai-creator-miniprogram,AI创作助手小程序,2026-05-20,,
+PRJ-20260516-015,amblyopia-training,0,https://github.com/YeLuo45/amblyopia-training,/home/hermes/projects/amblyopia-training,弱视训练应用,2026-05-20,,
+PRJ-20260516-016,animal-forest,0,https://github.com/YeLuo45/animal-forest,/home/hermes/projects/animal-forest,动物森林养成游戏,2026-05-20,,
+PRJ-20260516-017,ash-echoes,0,https://github.com/YeLuo45/ash-echoes,/home/hermes/projects/ash-echoes,Ash Echoes 2D动作RPG游戏,2026-05-20,,
+PRJ-20260516-018,soulshooter,0,https://github.com/YeLuo45/soulshooter,/home/hermes/projects/soulshooter,灵魂射击游戏,2026-05-20,,
+PRJ-20260516-019,super-mario-3d,0,https://github.com/YeLuo45/super-mario-3d,/home/hermes/projects/super-mario-3d,3D超级玛丽游戏,2026-05-20,,
+PRJ-20260521-001,prj-plants-vs-zombies,1,https://github.com/YeLuo45/plants-vs-zombies.git,/home/hermes/projects/prj-plants-vs-zombies,Plants vs Zombies Python+Pygame game,2026-05-21,,
+PRJ-20260521-002,price-compare,5,https://github.com/YeLuo45/price-compare,/home/hermes/projects/price-compare,多平台比价软件，商品价格比较与购物决策辅助,2026-05-22,,
+PRJ-20260521-003,openclaw,1,https://github.com/YeLuo45/openclaw,/home/hermes/workspace-dev/proposals/openclaw,OpenClaw 官网与文档站点,2026-05-21,,
+PRJ-20260522-001,future-little-leaders-admin,0,https://github.com/YeLuo45/future-little-leaders-admin,,future-little-leaders 家长后台管理,2026-05-22,,
+PRJ-20260522-002,future-little-leaders-sdk-python,0,https://github.com/YeLuo45/future-little-leaders-sdk-python,,future-little-leaders Python SDK,2026-05-22,,
+PRJ-20260522-003,ai-price-compare,0,https://github.com/YeLuo45/ai-price-compare,,AI多平台比价App (React Native),2026-05-22,,
+PRJ-20260523-001,ai-superpower,3,,,,2026-05-23,,
+PRJ-20260523-002,Test Project XYZ,0,https://github.com/test,,Updated desc,2026-05-23,,

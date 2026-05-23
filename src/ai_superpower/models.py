@@ -52,7 +52,7 @@ STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 # ─── CSV Field Names ─────────────────────────────────────────────────────────
 
-PROJECTS_CSV_HEADERS = ["id", "name", "proposal_count", "git_repo", "local_path", "description", "last_update"]
+PROJECTS_CSV_HEADERS = ["id", "name", "proposal_count", "git_repo", "local_path", "description", "last_update", "create_at", "prj_url"]
 PROPOSALS_CSV_HEADERS = [
     "id", "title", "owner", "status", "project_id", "project_name", "stage",
     "prd_path", "tech_solution_path", "project_path", "git_repo", "deployment_url",
@@ -68,6 +68,7 @@ class ProjectCreate(BaseModel):
     git_repo: Optional[str] = Field(default="")
     local_path: Optional[str] = Field(default="")
     description: Optional[str] = Field(default="")
+    prj_url: Optional[str] = Field(default="")
 
 
 class ProjectUpdate(BaseModel):
@@ -75,6 +76,7 @@ class ProjectUpdate(BaseModel):
     git_repo: Optional[str] = None
     local_path: Optional[str] = None
     description: Optional[str] = None
+    prj_url: Optional[str] = None
 
 
 class Project(BaseModel):
@@ -85,6 +87,8 @@ class Project(BaseModel):
     local_path: str = ""
     description: str = ""
     last_update: str = ""
+    create_at: str = ""
+    prj_url: str = ""
 
 
 # ─── Proposal Models ─────────────────────────────────────────────────────────
