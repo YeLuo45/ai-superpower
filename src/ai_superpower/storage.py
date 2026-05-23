@@ -290,6 +290,7 @@ class CSVStorage:
 
         new_row = {h: "" for h in PROPOSALS_CSV_HEADERS}
         new_row["id"] = new_id
+        new_row["status"] = "intake"  # Default status for new proposals
         new_row["last_update"] = today
         for key, value in data.items():
             if key in PROPOSALS_CSV_HEADERS and value is not None:
