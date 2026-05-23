@@ -23,19 +23,39 @@ def cmd_run(args):
     host = args.host or config.host
     port = args.port or config.port
 
+    # Check if port is already in use
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind((host, port))
+        sock.close()
+    except OSError as e:
+        if e.errno == 98:  # address already in use
+            import subprocess
+            result = subprocess.run(
+                ["ss", "-tlnp", f"sport = :{port}"],
+                capture_output=True, text=True
+            )
+            print(f"ERROR: Port {port} is already in use.", file=sys.stderr)
+            print(f"Current listener:\n{result.stdout}", file=sys.stderr)
+            return
+        raise
+
     print(f"Web UI: http://{host}:{port}")
     print(f"Web UI (Windows): http://localhost:{port}")
     print(f"API socket: {config.socket_path}")
-    print(f"Press Ctrl+C to stop")
-    print()
+    print("Press Ctrl+C to stop")
 
-    uvicorn.run(
-        "ai_superpower.server:app",
-        host=host,
-        port=port,
-        log_level="info",
-        reload=False,
-    )
+    try:
+        uvicorn.run(
+            "ai_superpower.server:app",
+            host=host,
+            port=port,
+            log_level="info",
+            reload=False,
+        )
+    except KeyboardInterrupt:
+        pass
 
 
 def cmd_project_create(args):

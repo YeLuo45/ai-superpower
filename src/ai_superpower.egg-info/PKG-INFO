@@ -4,8 +4,11 @@ Version: 0.1.0
 Summary: Proposal system API engine with strong validation
 Requires-Python: >=3.10
 Requires-Dist: fastapi>=0.115.0
-Requires-Dist: uvicorn[standard]>=0.30.0
-Requires-Dist: pydantic>=2.0.0
+Requires-Dist: uvicorn[standard]>=0.32.0
+Requires-Dist: pydantic>=2.10.0
 Requires-Dist: python-multipart>=0.0.20
-Requires-Dist: toml>=0.10.2
+Requires-Dist: jinja2>=4.0.0
+Requires-Dist: apscheduler>=3.11.0
 Requires-Dist: pytest>=8.0.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: starlette>=0.40.0
