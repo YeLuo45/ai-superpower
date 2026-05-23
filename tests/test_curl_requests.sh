@@ -76,7 +76,7 @@ echo ""
 
 # 2a. 创建提案
 echo "  2a. 创建提案"
-RESP=$(post "/api/proposals" '{"title":"Test Proposal for Curl","owner":"tester","project_id":"test-project","stage":"ideation","engine":"web","target":"browser","game_type":"puzzle","notes":"Curl test notes"}')
+RESP=$(post "/api/proposals" '{"title":"Test Proposal for Curl","owner":"tester","project_id":"PRJ-20260523-001","stage":"ideation","engine":"web","target":"browser","notes":"Curl test notes"}')
 echo "$RESP"
 PROP_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || echo "")
 echo "  提案ID: $PROP_ID"
