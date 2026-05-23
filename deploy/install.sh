@@ -5,17 +5,34 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$SCRIPT_DIR/src"
+DATA_DIR="$SCRIPT_DIR/db"
+OLD_DATA_DIR="/home/hermes/proposals"
 
 echo "=== ai-superpower installer ==="
 
 # 1. Install Python package
-echo "[1/4] Installing package..."
+echo "[1/5] Installing package..."
 pip install -e "$SCRIPT_DIR" --break-system-packages -q 2>/dev/null || \
 pip install -e "$SCRIPT_DIR" --user -q 2>/dev/null || \
 echo "  (pip install skipped, run manually)"
 
-# 2. Create config directory
-echo "[2/4] Creating config..."
+# 2. Create db directory and migrate data
+echo "[2/5] Setting up database directory..."
+mkdir -p "$DATA_DIR"
+
+# Migrate data from old location if db/ is empty
+if [ ! -s "$DATA_DIR/projects.csv" ] && [ -f "$OLD_DATA_DIR/projects.csv" ]; then
+    echo "  Migrating projects.csv from $OLD_DATA_DIR..."
+    cp "$OLD_DATA_DIR/projects.csv" "$DATA_DIR/projects.csv"
+fi
+if [ ! -s "$DATA_DIR/proposals.csv" ] && [ -f "$OLD_DATA_DIR/proposals.csv" ]; then
+    echo "  Migrating proposals.csv from $OLD_DATA_DIR..."
+    cp "$OLD_DATA_DIR/proposals.csv" "$DATA_DIR/proposals.csv"
+fi
+touch "$DATA_DIR/audit.log"
+
+# 3. Create config directory
+echo "[3/5] Creating config..."
 mkdir -p ~/.ai-superpower
 if [ ! -f ~/.ai-superpower/config.toml ]; then
     API_KEY=$(openssl rand -hex 32)
@@ -23,9 +40,8 @@ if [ ! -f ~/.ai-superpower/config.toml ]; then
 [api]
 key = "$API_KEY"
 socket_path = "/var/run/ai-superpower/api.sock"
-proposals_csv = "/home/hermes/proposals/proposals.csv"
-projects_csv = "/home/hermes/proposals/projects.csv"
-audit_log = "/home/hermes/proposals/audit.log"
+data_dir = "$DATA_DIR"
+allow_delete = false
 EOF
     echo "  Config created at ~/.ai-superpower/config.toml"
     echo "  API Key: $API_KEY"
@@ -33,66 +49,53 @@ else
     echo "  Config already exists"
 fi
 
-# 3. Fix projects.csv header (remove prj_url if present)
-echo "[3/4] Checking CSV headers..."
+# 4. Fix CSV headers
+echo "[4/5] Checking CSV headers..."
 python3 -c "
 import csv
 from pathlib import Path
 
-# Fix projects.csv
-pc = Path('/home/hermes/proposals/projects.csv')
-if pc.exists():
-    with open(pc, 'r') as f:
-        reader = csv.DictReader(f)
-        headers = reader.fieldnames
-    if 'prj_url' in headers:
-        print('  Fixing projects.csv: removing prj_url column')
-        rows = []
-        with open(pc, 'r') as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-        TARGET = ['id', 'name', 'proposal_count', 'git_repo', 'local_path', 'description', 'last_update']
-        with open(pc, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=TARGET, extrasaction='ignore')
-            writer.writeheader()
-            writer.writerows([{k: r.get(k, '') for k in TARGET} for r in rows])
-        print(f'  Fixed {len(rows)} project rows')
-    else:
-        print('  projects.csv header OK')
+DATA_DIR = '$DATA_DIR'
 
-# Fix proposals.csv: add status column if missing
-prc = Path('/home/hermes/proposals/proposals.csv')
-if prc.exists():
-    with open(prc, 'r') as f:
+def fix_csv(path, target_headers, id_col='id', status_col=None):
+    p = Path(path)
+    if not p.exists():
+        print(f'  {p.name}: file not found, skipping')
+        return
+    with open(p, 'r') as f:
         reader = csv.DictReader(f)
-        headers = reader.fieldnames
-    if 'status' not in headers:
-        print('  Fixing proposals.csv: adding status column')
-        rows = []
-        with open(prc, 'r') as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
-        TARGET = ['id', 'title', 'owner', 'status', 'project_id', 'project_name', 'stage',
-                  'prd_path', 'tech_solution_path', 'project_path', 'git_repo', 'deployment_url',
-                  'prd_confirmation', 'tech_expectations', 'acceptance', 'last_update',
-                  'engine', 'target', 'game_type', 'notes']
-        with open(prc, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=TARGET, extrasaction='ignore')
+        headers = reader.fieldnames or []
+        rows = list(reader)
+    dirty = any(h not in target_headers for h in headers)
+    if dirty or len(headers) != len(target_headers):
+        print(f'  Fixing {p.name}: headers mismatch')
+        with open(p, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=target_headers, extrasaction='ignore')
             writer.writeheader()
             for r in rows:
-                clean = {k: r.get(k, '') for k in TARGET}
-                if not clean.get('status'):
-                    clean['status'] = 'intake'
+                clean = {k: r.get(k, '') for k in target_headers}
+                if status_col and not clean.get(status_col):
+                    clean[status_col] = 'intake'
                 writer.writerow(clean)
-        print(f'  Fixed {len(rows)} proposal rows')
+        print(f'    Fixed {len(rows)} rows')
     else:
-        print('  proposals.csv header OK')
+        print(f'  {p.name}: header OK ({len(rows)} rows)')
+
+PROJ_TARGET = ['id', 'name', 'proposal_count', 'git_repo', 'local_path', 'description', 'last_update']
+fix_csv(f'{DATA_DIR}/projects.csv', PROJ_TARGET)
+
+PROP_TARGET = ['id', 'title', 'owner', 'status', 'project_id', 'project_name', 'stage',
+               'prd_path', 'tech_solution_path', 'project_path', 'git_repo', 'deployment_url',
+               'prd_confirmation', 'tech_expectations', 'acceptance', 'last_update',
+               'engine', 'target', 'game_type', 'notes']
+fix_csv(f'{DATA_DIR}/proposals.csv', PROP_TARGET, status_col='status')
 "
 
-# 4. Create symlink for CLI
-echo "[4/4] Done."
+# 5. Create symlink for CLI
+echo "[5/5] Done."
 echo ""
 echo "Start server: ai-superpower run"
 echo "Or install systemd service: sudo cp deploy/ai-superpower.service /etc/systemd/system/"
 echo ""
 echo "Config at: ~/.ai-superpower/config.toml"
+echo "Data at: $DATA_DIR"
