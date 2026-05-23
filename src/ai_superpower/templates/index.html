@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ai-superpower</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/web/projects">Projects</a>
+        <a href="/web/proposals">Proposals</a>
+        <a href="/web/audit">Audit</a>
+        <a href="/web/settings">Settings</a>
+    </nav>
+    <main>
+        <h1>Dashboard</h1>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="project-count">—</div>
+                <div class="stat-label">Projects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="proposal-count">—</div>
+                <div class="stat-label">Proposals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="audit-count">—</div>
+                <div class="stat-label">Audit Entries</div>
+            </div>
+        </div>
+        <h2>Recent Activity</h2>
+        <div id="recent-activity">Loading...</div>
+    </main>
+    <script src="/static/app.js"></script>
+    <script>
+        loadDashboard();
+    </script>
+</body>
+</html>

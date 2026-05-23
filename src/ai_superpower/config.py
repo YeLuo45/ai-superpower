@@ -2,7 +2,7 @@
 import os
 import tomllib
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 CONFIG_PATH = Path.home() / ".ai-superpower" / "config.toml"
 
@@ -14,27 +14,37 @@ _DEFAULT_DATA_DIR = Path(__file__).parent.parent.parent / "db"
 class APIConfig:
     key: str
     socket_path: str = "/var/run/ai-superpower/api.sock"
-    data_dir: str = ""  # 如果设置，则优先用于 projects_csv / proposals_csv / audit_log
+    data_dir: str = ""
     proposals_csv: str = ""
     projects_csv: str = ""
     audit_log: str = ""
     allow_delete: bool = False
 
+    # Backup
+    backup_enabled: bool = False
+    backup_frequency: str = "1h"   # 1h / 6h / 1d
+    backup_max_copies: int = 48
+    backup_local_path: str = ""
+    backup_remote_repo: str = ""
+    backup_remote_branch: str = "backup"
+    backup_api_key: str = ""
+
     def __post_init__(self):
-        # 如果 data_dir 设置了，则覆盖三个路径
         if self.data_dir:
             dd = Path(self.data_dir)
             self.proposals_csv = str(dd / "proposals.csv")
             self.projects_csv = str(dd / "projects.csv")
             self.audit_log = str(dd / "audit.log")
         else:
-            # 兜底默认值（保持向前兼容）
             if not self.proposals_csv:
                 self.proposals_csv = str(_DEFAULT_DATA_DIR / "proposals.csv")
             if not self.projects_csv:
                 self.projects_csv = str(_DEFAULT_DATA_DIR / "projects.csv")
             if not self.audit_log:
                 self.audit_log = str(_DEFAULT_DATA_DIR / "audit.log")
+
+        if not self.backup_local_path:
+            self.backup_local_path = str(_DEFAULT_DATA_DIR.parent / "backups")
 
 
 def load_config() -> APIConfig:
@@ -51,6 +61,8 @@ def load_config() -> APIConfig:
         data = tomllib.load(f)
 
     api_section = data.get("api", {})
+    backup_section = data.get("backup", {})
+
     return APIConfig(
         key=api_section.get("key", ""),
         socket_path=api_section.get("socket_path", "/var/run/ai-superpower/api.sock"),
@@ -59,4 +71,11 @@ def load_config() -> APIConfig:
         projects_csv=api_section.get("projects_csv", ""),
         audit_log=api_section.get("audit_log", ""),
         allow_delete=api_section.get("allow_delete", False),
+        backup_enabled=backup_section.get("enabled", False),
+        backup_frequency=backup_section.get("frequency", "1h"),
+        backup_max_copies=backup_section.get("max_copies", 48),
+        backup_local_path=backup_section.get("local_path", ""),
+        backup_remote_repo=backup_section.get("remote_repo", ""),
+        backup_remote_branch=backup_section.get("remote_branch", "backup"),
+        backup_api_key=backup_section.get("api_key", ""),
     )

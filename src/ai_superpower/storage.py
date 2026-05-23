@@ -1,12 +1,13 @@
-"""CSV storage layer with file locking and audit logging."""
+"""CSV storage layer with file locking and field-level audit logging."""
 import csv
 import fcntl
 import hashlib
+import json
 import os
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Any, Generator, Optional
 
 from .config import APIConfig, load_config
 from .models import (
@@ -18,10 +19,11 @@ from .models import (
 
 
 class CSVStorage:
-    """Thread-safe CSV storage with file locking and audit logging."""
+    """Thread-safe CSV storage with field-level audit logging."""
 
-    def __init__(self, config: Optional[APIConfig] = None):
+    def __init__(self, config: Optional[APIConfig] = None, actor: str = "system"):
         self.config = config or load_config()
+        self.actor = actor  # SHA256 first 8 chars of API key
         self._ensure_files_exist()
 
     def _ensure_files_exist(self):
@@ -56,12 +58,30 @@ class CSVStorage:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
 
-    def _audit_log(self, action: str, target: str, details: str = ""):
-        """Write an audit log entry."""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        entry = f"[{timestamp}] {action} | {target} | {details}\n"
+    def _audit(
+        self,
+        op: str,
+        entity: str,
+        entity_id: str,
+        field: Optional[str] = None,
+        old: Optional[Any] = None,
+        new: Optional[Any] = None,
+        checksum_after: Optional[str] = None,
+    ):
+        """Write a JSON audit log entry (one JSON per line)."""
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "op": op,
+            "entity": entity,
+            "id": entity_id,
+            "field": field,
+            "old": old,
+            "new": new,
+            "actor": self.actor,
+            "checksum_after": checksum_after,
+        }
         with open(self.config.audit_log, "a", encoding="utf-8") as f:
-            f.write(entry)
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     # ─── Projects ──────────────────────────────────────────────────────────────
 
@@ -100,7 +120,9 @@ class CSVStorage:
                         return Project(**row)
         return None
 
-    def create_project(self, name: str, git_repo: str = "", local_path: str = "", description: str = "") -> Project:
+    def create_project(
+        self, name: str, git_repo: str = "", local_path: str = "", description: str = ""
+    ) -> Project:
         """Create a new project with auto-generated ID."""
         today = datetime.now().strftime("%Y-%m-%d")
 
@@ -110,7 +132,7 @@ class CSVStorage:
                 existing = list(reader)
 
         # Generate next ID
-        today_prefix = f"PRJ-{today.replace('-', '')}-";
+        today_prefix = f"PRJ-{today.replace('-', '')}-"
         existing_ids = [r["id"] for r in existing if r["id"].startswith(today_prefix)]
         if existing_ids:
             nums = [int(r.split("-")[-1]) for r in existing_ids]
@@ -119,7 +141,6 @@ class CSVStorage:
             next_num = 1
         new_id = f"{today_prefix}{next_num:03d}"
 
-        # Also create a project_name entry in proposals_csv lookup
         new_project = Project(
             id=new_id,
             name=name,
@@ -137,11 +158,11 @@ class CSVStorage:
                 writer.writerow(new_project.model_dump(exclude_none=True))
             sha_after = self._sha256(self.config.projects_csv)
 
-        self._audit_log("CSV_WRITE", self.config.projects_csv, f"{len(existing) + 1} rows, {len(PROJECTS_CSV_HEADERS)} fields | sha {sha_before[:8]}→{sha_after[:8]}")
+        self._audit("CREATE", "project", new_id, checksum_after=sha_after)
         return new_project
 
     def update_project(self, project_id: str, updates: dict) -> Optional[Project]:
-        """Update project fields (partial update)."""
+        """Update project fields (partial update, field-level audit)."""
         with self._lock_file(self.config.projects_csv, "shared"):
             with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f)
@@ -157,8 +178,11 @@ class CSVStorage:
             return None
 
         today = datetime.now().strftime("%Y-%m-%d")
+        # Collect old values for audit
+        old_values = {}
         for key, value in updates.items():
             if value is not None and key in PROJECTS_CSV_HEADERS:
+                old_values[key] = rows[target_idx].get(key, "")
                 rows[target_idx][key] = value
         rows[target_idx]["last_update"] = today
 
@@ -170,7 +194,11 @@ class CSVStorage:
                 writer.writerows(rows)
             sha_after = self._sha256(self.config.projects_csv)
 
-        self._audit_log("CSV_WRITE", self.config.projects_csv, f"{len(rows)} rows | sha {sha_before[:8]}→{sha_after[:8]}")
+        # Field-level audit entry per changed field
+        for field, old_val in old_values.items():
+            new_val = rows[target_idx].get(field, "")
+            self._audit("UPDATE", "project", project_id, field=field, old=old_val, new=new_val, checksum_after=sha_after)
+
         return Project(**rows[target_idx])
 
     def delete_project(self, project_id: str) -> bool:
@@ -185,10 +213,16 @@ class CSVStorage:
                 reader = csv.DictReader(f)
                 rows = list(reader)
 
-        new_rows = [r for r in rows if r["id"] != project_id]
-        if len(new_rows) == len(rows):
+        target_row = None
+        for row in rows:
+            if row["id"] == project_id:
+                target_row = row
+                break
+
+        if target_row is None:
             return False
 
+        new_rows = [r for r in rows if r["id"] != project_id]
         with self._lock_file(self.config.projects_csv, "exclusive"):
             sha_before = self._sha256(self.config.projects_csv)
             with open(self.config.projects_csv, "w", encoding="utf-8", newline="") as f:
@@ -197,7 +231,9 @@ class CSVStorage:
                 writer.writerows(new_rows)
             sha_after = self._sha256(self.config.projects_csv)
 
-        self._audit_log("CSV_WRITE", self.config.projects_csv, f"delete {project_id} | {len(rows)}→{len(new_rows)} rows | sha {sha_before[:8]}→{sha_after[:8]}")
+        # Audit each field as deleted
+        for field, old_val in target_row.items():
+            self._audit("DELETE", "project", project_id, field=field, old=old_val, new=None, checksum_after=sha_after)
         return True
 
     # ─── Proposals ────────────────────────────────────────────────────────────
@@ -218,7 +254,6 @@ class CSVStorage:
                 reader = csv.DictReader(f)
                 all_rows = list(reader)
 
-        # Also load projects for project_name lookup
         project_map = {}
         with self._lock_file(self.config.projects_csv, "shared"):
             with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
@@ -290,13 +325,12 @@ class CSVStorage:
 
         new_row = {h: "" for h in PROPOSALS_CSV_HEADERS}
         new_row["id"] = new_id
-        new_row["status"] = "intake"  # Default status for new proposals
+        new_row["status"] = "intake"
         new_row["last_update"] = today
         for key, value in data.items():
             if key in PROPOSALS_CSV_HEADERS and value is not None:
                 new_row[key] = str(value)
 
-        # Get project_name
         project_map = {}
         with self._lock_file(self.config.projects_csv, "shared"):
             with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
@@ -312,15 +346,15 @@ class CSVStorage:
                 writer.writerow(new_row)
             sha_after = self._sha256(self.config.proposals_csv)
 
-        self._audit_log("CSV_WRITE", self.config.proposals_csv, f"{len(existing) + 1} rows, {len(PROPOSALS_CSV_HEADERS)} fields | sha {sha_before[:8]}→{sha_after[:8]}")
+        self._audit("CREATE", "proposal", new_id, checksum_after=sha_after)
 
-        # Update project proposal_count
+        # Sync project proposal_count
         self._sync_project_proposal_count(new_row.get("project_id", ""))
 
         return Proposal(**new_row)
 
     def update_proposal(self, proposal_id: str, updates: dict) -> Optional[Proposal]:
-        """Update proposal fields (partial update, excluding id)."""
+        """Update proposal fields (partial update, field-level audit)."""
         with self._lock_file(self.config.proposals_csv, "shared"):
             with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f)
@@ -336,14 +370,15 @@ class CSVStorage:
             return None
 
         today = datetime.now().strftime("%Y-%m-%d")
+        old_values = {}
         for key, value in updates.items():
             if key == "id" or value is None:
                 continue
             if key in PROPOSALS_CSV_HEADERS:
+                old_values[key] = rows[target_idx].get(key, "")
                 rows[target_idx][key] = str(value)
         rows[target_idx]["last_update"] = today
 
-        # Refresh project_name
         project_map = {}
         with self._lock_file(self.config.projects_csv, "shared"):
             with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
@@ -360,7 +395,10 @@ class CSVStorage:
                 writer.writerows(rows)
             sha_after = self._sha256(self.config.proposals_csv)
 
-        self._audit_log("CSV_WRITE", self.config.proposals_csv, f"{len(rows)} rows | sha {sha_before[:8]}→{sha_after[:8]}")
+        for field, old_val in old_values.items():
+            new_val = rows[target_idx].get(field, "")
+            self._audit("UPDATE", "proposal", proposal_id, field=field, old=old_val, new=new_val, checksum_after=sha_after)
+
         return Proposal(**rows[target_idx])
 
     def update_proposal_status(self, proposal_id: str, new_status: str) -> Optional[Proposal]:
@@ -370,27 +408,6 @@ class CSVStorage:
             return None
 
         current_status = proposal.status
-        allowed = {
-            current_status: {
-                "intake": {"clarifying"},
-                "clarifying": {"prd_pending_confirmation"},
-                "prd_pending_confirmation": {"approved_for_dev"},
-                "approved_for_dev": {"in_tdd_test", "in_dev"},
-                "in_tdd_test": {"in_dev"},
-                "in_dev": {"in_test_acceptance", "needs_revision"},
-                "in_test_acceptance": {"accepted", "test_failed"},
-                "test_failed": {"in_dev"},
-                "needs_revision": {"in_dev"},
-                "accepted": {"deployed"},
-                "deployed": {"delivered"},
-                "deploying": {"deployed"},
-                "research_direction_pending": {"intake"},
-                "active": {"active"},
-                "archived": {"archived"},
-                "delivered": {"delivered"},
-            }
-        }
-
         from .models import STATUS_TRANSITIONS
         if new_status not in STATUS_TRANSITIONS.get(current_status, set()):
             raise ValueError(f"Invalid status transition: {current_status} → {new_status}")
@@ -398,7 +415,7 @@ class CSVStorage:
         return self.update_proposal(proposal_id, {"status": new_status})
 
     def delete_proposal(self, proposal_id: str) -> bool:
-        """Delete a proposal."""
+        """Delete a proposal (field-level audit of deleted values)."""
         with self._lock_file(self.config.proposals_csv, "shared"):
             with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f)
@@ -414,7 +431,6 @@ class CSVStorage:
             return False
 
         new_rows = [r for r in rows if r["id"] != proposal_id]
-
         with self._lock_file(self.config.proposals_csv, "exclusive"):
             sha_before = self._sha256(self.config.proposals_csv)
             with open(self.config.proposals_csv, "w", encoding="utf-8", newline="") as f:
@@ -423,9 +439,9 @@ class CSVStorage:
                 writer.writerows(new_rows)
             sha_after = self._sha256(self.config.proposals_csv)
 
-        self._audit_log("CSV_WRITE", self.config.proposals_csv, f"delete {proposal_id} | {len(rows)}→{len(new_rows)} rows | sha {sha_before[:8]}→{sha_after[:8]}")
+        for field, old_val in target_row.items():
+            self._audit("DELETE", "proposal", proposal_id, field=field, old=old_val, new=None, checksum_after=sha_after)
 
-        # Update project proposal_count
         self._sync_project_proposal_count(target_row.get("project_id", ""))
         return True
 
@@ -446,29 +462,31 @@ class CSVStorage:
         self,
         page: int = 1,
         page_size: int = 100,
-        target: Optional[str] = None,
-        action: Optional[str] = None,
+        entity_id: Optional[str] = None,
+        op: Optional[str] = None,
+        entity: Optional[str] = None,
     ) -> tuple[list[dict], int]:
-        """List audit log entries with pagination."""
-        with open(self.config.audit_log, "r", encoding="utf-8") as f:
-            all_lines = f.readlines()
-
+        """List audit log entries (JSON lines) with pagination."""
         entries = []
-        for line in all_lines:
-            line = line.strip()
-            if not line:
-                continue
-            # Parse: [timestamp] action | target | details
-            parts = line.split(" | ", 2)
-            if len(parts) == 3:
-                ts = parts[0].lstrip("[")
-                act = parts[1].strip()
-                det = parts[2].strip()
-                if target and target != det.split()[0] if det else False:
+        if not Path(self.config.audit_log).exists():
+            return [], 0
+
+        with open(self.config.audit_log, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
                     continue
-                if action and action != act:
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
                     continue
-                entries.append({"timestamp": ts, "action": act, "target": det})
+                if entity_id and entry.get("id") != entity_id:
+                    continue
+                if op and entry.get("op") != op:
+                    continue
+                if entity and entry.get("entity") != entity:
+                    continue
+                entries.append(entry)
 
         total = len(entries)
         start = (page - 1) * page_size
@@ -480,31 +498,33 @@ class CSVStorage:
         errors = []
         from .models import VALID_ENUMS, PROJECT_ID_PATTERN, VALID_PROPOSAL_STAGES
 
-        # project_id format
         if not PROJECT_ID_PATTERN.match(data.get("project_id", "")):
             errors.append(f"Invalid project_id format: {data.get('project_id')}. Expected PRJ-YYYYMMDD-NNN")
 
-        # stage enum
         if data.get("stage") not in VALID_PROPOSAL_STAGES:
             errors.append(f"Invalid stage: {data.get('stage')}")
 
-        # enum fields
         for field, valid_values in VALID_ENUMS.items():
             val = data.get(field, "")
             if val and val not in valid_values:
                 errors.append(f"Invalid {field}: {val}")
 
-        # project_id exists
         if data.get("project_id"):
             project = self.get_project(data["project_id"])
             if project is None:
-                errors.append(f"project_id '{data['project_id']}' does not exist")
+                errors.append(f"project_id does not exist: {data['project_id']}")
 
         return errors
 
     def validate_project(self, data: dict) -> list[str]:
         """Dry-run validation for a project. Returns list of errors."""
         errors = []
-        if not data.get("name", "").strip():
-            errors.append("name is required")
+        from .models import PROJECT_ID_PATTERN
+
+        if data.get("project_id") and not PROJECT_ID_PATTERN.match(data["project_id"]):
+            errors.append(f"Invalid project_id format: {data['project_id']}. Expected PRJ-YYYYMMDD-NNN")
+
+        if not data.get("name"):
+            errors.append("Project name is required")
+
         return errors

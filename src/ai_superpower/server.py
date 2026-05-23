@@ -1,9 +1,13 @@
-"""FastAPI server for ai-superpower."""
+"""FastAPI server for ai-superpower — API + Web UI."""
+import hashlib
 import sys
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Response
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -41,12 +45,24 @@ class ValidateResponse(BaseModel):
 app = FastAPI(title="ai-superpower", version="0.1.0")
 _storage: Optional[CSVStorage] = None
 
+# Static / templates (set up after startup)
+_templates: Optional[Jinja2Templates] = None
+
 
 @app.on_event("startup")
 def startup():
-    global _storage
+    global _storage, _templates
     config = load_config()
-    _storage = CSVStorage(config)
+    actor = hashlib.sha256(config.key.encode()).hexdigest()[:8]
+    _storage = CSVStorage(config, actor=actor)
+
+    # Templates point to package templates dir
+    templates_dir = Path(__file__).parent / "templates"
+    _templates = Jinja2Templates(directory=str(templates_dir))
+
+    # Mount static files
+    static_dir = Path(__file__).parent / "static"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 def get_storage() -> CSVStorage:
@@ -126,7 +142,6 @@ def delete_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
             status_code=403,
             detail="Delete operation is disabled. Set `allow_delete = true` in config.toml to enable.",
         )
-    s = get_storage()
     try:
         deleted = s.delete_project(project_id)
         if not deleted:
@@ -210,7 +225,6 @@ def delete_proposal(proposal_id: str, _ak: str = Header(..., alias="X-API-Key"))
             status_code=403,
             detail="Delete operation is disabled. Set `allow_delete = true` in config.toml to enable.",
         )
-    s = get_storage()
     deleted = s.delete_proposal(proposal_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Proposal not found")
@@ -236,10 +250,38 @@ def validate(data: ValidatePayload, _ak: str = Header(..., alias="X-API-Key")):
 def list_audit(
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=500),
-    target: Optional[str] = None,
-    action: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    op: Optional[str] = None,
+    entity: Optional[str] = None,
     _ak: str = Header(..., alias="X-API-Key"),
 ):
     s = get_storage()
-    items, total = s.list_audit(page=page, page_size=page_size, target=target, action=action)
+    items, total = s.list_audit(page=page, page_size=page_size, entity_id=entity_id, op=op, entity=entity)
     return PageResponse(total=total, page=page, page_size=page_size, items=items)
+
+
+# ─── Web UI ───────────────────────────────────────────────────────────────────
+
+@app.get("/", response_class=HTMLResponse)
+def web_index():
+    return _templates.TemplateResponse("index.html", {"request": {}})
+
+
+@app.get("/web/projects", response_class=HTMLResponse)
+def web_projects():
+    return _templates.TemplateResponse("projects/list.html", {"request": {}})
+
+
+@app.get("/web/proposals", response_class=HTMLResponse)
+def web_proposals():
+    return _templates.TemplateResponse("proposals/list.html", {"request": {}})
+
+
+@app.get("/web/audit", response_class=HTMLResponse)
+def web_audit():
+    return _templates.TemplateResponse("audit.html", {"request": {}})
+
+
+@app.get("/web/settings", response_class=HTMLResponse)
+def web_settings():
+    return _templates.TemplateResponse("settings.html", {"request": {}})

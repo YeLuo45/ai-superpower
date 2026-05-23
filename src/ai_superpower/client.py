@@ -183,13 +183,15 @@ class APIClient:
         result = self._do_request("POST", "/validate", {"data": data})
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
-    def get_audit(self, page: int = 1, page_size: int = 100, target: str = None, action: str = None):
+    def get_audit(self, page: int = 1, page_size: int = 100, entity_id: str = None, op: str = None, entity: str = None):
         import urllib.parse
         params = f"page={page}&page_size={page_size}"
-        if target:
-            params += f"&target={urllib.parse.quote(target)}"
-        if action:
-            params += f"&action={urllib.parse.quote(action)}"
+        if entity_id:
+            params += f"&entity_id={urllib.parse.quote(entity_id)}"
+        if op:
+            params += f"&op={urllib.parse.quote(op)}"
+        if entity:
+            params += f"&entity={urllib.parse.quote(entity)}"
         result = self._do_request("GET", f"/audit?{params}")
         print(json.dumps(result, indent=2, ensure_ascii=False))
 

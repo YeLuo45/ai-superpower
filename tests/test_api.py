@@ -40,7 +40,7 @@ def storage(config):
         'socket_path': config.socket_path,
         'allow_delete': True,
     })()
-    s = CSVStorage(cfg)
+    s = CSVStorage(cfg, actor="test")
     s.create_project(name="API Test Project")
     return s
 

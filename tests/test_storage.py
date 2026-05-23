@@ -1,5 +1,6 @@
 """Tests for ai_superpower CSV storage layer."""
 import csv
+import json
 import os
 import pytest
 import tempfile
@@ -27,7 +28,7 @@ class TempStorageConfig:
 def storage(tmp_path):
     from ai_superpower.storage import CSVStorage
     config = TempStorageConfig(tmp_path)
-    s = CSVStorage(config)
+    s = CSVStorage(config, actor="test")
     # Create a test project so proposals can reference it
     s.create_project(name="Test Project", git_repo="", local_path="", description="")
     return s
@@ -39,7 +40,7 @@ class TestStorageInit:
     def test_csv_files_created(self, tmp_path):
         from ai_superpower.storage import CSVStorage
         config = TempStorageConfig(tmp_path)
-        s = CSVStorage(config)
+        s = CSVStorage(config, actor="test")
         assert os.path.exists(config.projects_csv)
         assert os.path.exists(config.proposals_csv)
         assert os.path.exists(config.audit_log)
@@ -47,7 +48,7 @@ class TestStorageInit:
     def test_audit_log_created(self, tmp_path):
         from ai_superpower.storage import CSVStorage
         config = TempStorageConfig(tmp_path)
-        s = CSVStorage(config)
+        s = CSVStorage(config, actor="test")
         with open(config.audit_log) as f:
             content = f.read()
         assert content == ""
@@ -294,19 +295,21 @@ class TestAuditLogging:
         config = storage.config
         proj = storage.create_project(name="Audit Me")
         with open(config.audit_log, "r") as f:
-            entries = f.readlines()
+            entries = [json.loads(line) for line in f if line.strip()]
         assert len(entries) >= 1
-        assert "CSV_WRITE" in entries[-1]
-        assert config.projects_csv.split("/")[-1] in entries[-1]
+        assert entries[-1]["op"] == "CREATE"
+        assert entries[-1]["entity"] == "project"
+        assert entries[-1]["id"] == proj.id
+        assert entries[-1]["checksum_after"] is not None
 
     def test_audit_log_sha记录(self, storage, tmp_path):
         config = storage.config
         storage.create_project(name="SHA Test")
         with open(config.audit_log, "r") as f:
-            entry = f.readlines()[-1]
-        # Should contain sha pattern: 8 hex chars → 8 hex chars
+            lines = [line.strip() for line in f if line.strip()]
         import re
-        sha_pattern = re.search(r'[0-9a-f]{8}→[0-9a-f]{8}', entry)
+        # JSON format: checksum_after is a full SHA256 hex
+        sha_pattern = re.search(r'[0-9a-f]{64}', lines[-1])
         assert sha_pattern is not None
 
 

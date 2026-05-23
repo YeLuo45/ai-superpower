@@ -133,7 +133,43 @@ def cmd_validate(args):
 
 def cmd_audit(args):
     client = APIClient()
-    client.get_audit(page=args.page, page_size=args.page_size, target=args.target, action=args.action)
+    client.get_audit(page=args.page, page_size=args.page_size, entity_id=args.entity_id, op=args.op, entity=args.entity)
+
+
+def cmd_replay(args):
+    from ai_superpower.replay import Replay
+    r = Replay(dry_run=args.dry_run)
+    if args.undo:
+        r.undo_last(args.undo)
+    else:
+        r.replay_from_file(
+            from_time=args.from_time,
+            last_n=args.last,
+            entity_id=args.entity_id,
+        )
+
+
+def cmd_backup(args):
+    from ai_superpower.backup import BackupScheduler
+    bs = BackupScheduler()
+    if args.list_backups:
+        backups = bs.list_backups()
+        print(f"{'Name':<40} {'Size':>10}  Modified")
+        print("-" * 65)
+        for b in backups:
+            size_kb = b["size"] / 1024
+            print(f"{b['name']:<40} {size_kb:>9.1f}KB  {b['mtime']}")
+        return
+    if args.restore:
+        bs.restore(args.restore)
+        return
+    result = bs.backup()
+    if result["success"]:
+        print(f"Backup complete: {result['backup_dir']}")
+        if result["remote_done"]:
+            print("Remote push: OK")
+    else:
+        print(f"Backup failed: {result['error']}")
 
 
 def cmd_sync_to_index(args):
@@ -293,8 +329,9 @@ def main():
     p_audit = subparsers.add_parser("audit", help="Query audit log")
     p_audit.add_argument("--page", type=int, default=1)
     p_audit.add_argument("--page-size", dest="page_size", type=int, default=100)
-    p_audit.add_argument("--target", default=None)
-    p_audit.add_argument("--action", default=None)
+    p_audit.add_argument("--entity-id", dest="entity_id", default=None)
+    p_audit.add_argument("--op", default=None, help="Filter by op: CREATE/UPDATE/DELETE")
+    p_audit.add_argument("--entity", default=None, help="Filter by entity: project/proposal")
     p_audit.set_defaults(func=cmd_audit)
 
     # sync-to-index
@@ -304,6 +341,21 @@ def main():
     # tui
     p_tui = subparsers.add_parser("tui", help="Launch interactive TUI")
     p_tui.set_defaults(func=cmd_tui)
+
+    # replay
+    p_replay = subparsers.add_parser("replay", help="Replay audit log entries")
+    p_replay.add_argument("--dry-run", action="store_true", default=False)
+    p_replay.add_argument("--from", dest="from_time", default=None, help="ISO timestamp to replay from")
+    p_replay.add_argument("--last", type=int, default=None, help="Replay last N entries")
+    p_replay.add_argument("--entity-id", dest="entity_id", default=None, help="Filter by entity ID")
+    p_replay.add_argument("--undo", default=None, help="Undo last operation on entity ID")
+    p_replay.set_defaults(func=cmd_replay)
+
+    # backup
+    p_backup = subparsers.add_parser("backup", help="Backup management")
+    p_backup.add_argument("--list", dest="list_backups", action="store_true", default=False)
+    p_backup.add_argument("--restore", default=None, help="Restore from backup name")
+    p_backup.set_defaults(func=cmd_backup)
 
     args = parser.parse_args()
 
