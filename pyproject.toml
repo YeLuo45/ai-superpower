@@ -1,0 +1,23 @@
+[project]
+name = "ai-superpower"
+version = "0.1.0"
+description = "Proposal system API engine with strong validation"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "python-multipart>=0.0.20",
+    "jinja2>=4.0.0",
+    "apscheduler>=3.11.0",
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "starlette>=0.40.0",
+]
+
+[project.scripts]
+ai-superpower = "ai_superpower.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
