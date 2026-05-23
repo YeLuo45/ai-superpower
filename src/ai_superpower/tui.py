@@ -163,7 +163,7 @@ class TUI:
             if ch in (ord("y"), ord("Y")):
                 win.erase()
                 return True
-            if ch in (ord("n"), ord("N"), curses.KEY_ESC):
+            if ch in (ord("n"), ord("N"), 27):
                 win.erase()
                 return False
 
@@ -197,7 +197,7 @@ class TUI:
             self._draw_footer("[↑/↓] scroll  [Q] back")
             self.stdscr.refresh()
             ch = self.stdscr.getch()
-            if ch in (ord("q"), ord("Q"), curses.KEY_ESC):
+            if ch in (ord("q"), ord("Q"), 27):
                 break
             if ch == curses.KEY_DOWN and (page + 1) * page_size < len(lines):
                 page += 1
@@ -383,7 +383,7 @@ class TUI:
         self.stdscr.refresh()
         while True:
             ch = self.stdscr.getch()
-            if ch in (ord("q"), ord("Q"), curses.KEY_ESC):
+            if ch in (ord("q"), ord("Q"), 27):
                 return
 
     def _draw(self):
@@ -514,7 +514,7 @@ class TUI:
                     self._load_projects()
                 else:
                     self._load_proposals()
-        elif ch in (ord("q"), ord("Q"), curses.KEY_ESC, 27):
+        elif ch in (ord("q"), ord("Q"), 27):
             self.running = False
         elif ch == curses.KEY_RESIZE:
             pass  # Curses handles resize automatically
