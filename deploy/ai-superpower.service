@@ -1,0 +1,17 @@
+[Unit]
+Description=ai-superpower API Server
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/ai-superpower run
+Restart=always
+RestartSec=5
+RuntimeDirectory=ai-superpower
+RuntimeDirectoryMode=0755
+Environment="PYTHONUNBUFFERED=1"
+User=hermes
+Group=hermes
+
+[Install]
+WantedBy=multi-user.target
