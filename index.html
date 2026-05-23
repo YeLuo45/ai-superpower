@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ai-superpower — 提案系统 API 引擎</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+.container { max-width: 900px; margin: 0 auto; padding: 60px 24px; }
+header { text-align: center; margin-bottom: 48px; }
+h1 { font-size: 2.5rem; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+.tagline { color: #94a3b8; font-size: 1.1rem; margin-bottom: 24px; }
+.badge { display: inline-block; padding: 4px 12px; background: #1e1b4b; border: 1px solid #4338ca; border-radius: 20px; font-size: 0.85rem; color: #a5b4fc; }
+section { margin-bottom: 40px; }
+h2 { font-size: 1.3rem; color: #a855f7; margin-bottom: 16px; border-left: 3px solid #6366f1; padding-left: 12px; }
+.card { background: #1a1d27; border: 1px solid #2d2f3d; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+.card h3 { color: #e2e8f0; margin-bottom: 8px; }
+.card p { color: #94a3b8; font-size: 0.95rem; line-height: 1.6; }
+.code { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 16px; font-family: 'Fira Code', monospace; font-size: 0.85rem; overflow-x: auto; margin-bottom: 16px; color: #10b981; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+th { text-align: left; padding: 10px 14px; background: #1a1d27; border-bottom: 2px solid #2d2f3d; color: #a855f7; font-size: 0.9rem; }
+td { padding: 10px 14px; border-bottom: 1px solid #2d2f3d; color: #94a3b8; font-size: 0.9rem; }
+tr:hover td { background: #1a1d27; }
+.status-diagram { font-family: monospace; font-size: 0.85rem; color: #10b981; white-space: pre; background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+a { color: #6366f1; text-decoration: none; }
+a:hover { text-decoration: underline; }
+footer { text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 60px; padding-top: 24px; border-top: 1px solid #2d2f3d; }
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+  <h1>ai-superpower</h1>
+  <p class="tagline">提案系统 API 引擎 — projects.csv 和 proposals.csv 所有变更的唯一入口</p>
+  <span class="badge">FastAPI + CSVStorage + JSON Audit</span>
+</header>
+
+<section>
+  <h2>背景问题</h2>
+  <div class="card">
+    <h3>为什么需要这个系统？</h3>
+    <p>直接编辑 CSV（脚本、execute_code、手动 patch）会绕过校验、污染枚举字段、破坏引用完整性。ai-superpower 通过架构设计，使 API 成为唯一写入路径。</p>
+  </div>
+  <table>
+    <tr><th>变更方式</th><th>风险</th></tr>
+    <tr><td>直接 patch CSV</td><td>绕过校验、污染枚举字段、破坏引用完整性</td></tr>
+    <tr><td>通过 API 写入</td><td>Pydantic校验 + 状态机 + flock锁 + SHA256审计</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>核心防护机制</h2>
+  <div class="card">
+    <table>
+      <tr><th>机制</th><th>作用</th></tr>
+      <tr><td>API 唯一写入路径</td><td>所有数据变更必须经过 API</td></tr>
+      <tr><td>Pydantic 校验</td><td>ID 格式、枚举值、字符串长度、必填字段</td></tr>
+      <tr><td>状态机转换校验</td><td>intake→clarifying→prd_pending_confirmation→...→deployed→delivered</td></tr>
+      <tr><td>flock 文件锁</td><td>读并发、写串行化</td></tr>
+      <tr><td>JSON 审计日志</td><td>字段级变更追踪 + 精确回滚</td></tr>
+      <tr><td>引用完整性</td><td>project_id 存在性检查 + 级联删除保护</td></tr>
+      <tr><td>Unix Socket 传输</td><td>不暴露网络端口</td></tr>
+      <tr><td>API Key 认证</td><td>每次请求带 X-API-Key Header</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>状态机</h2>
+  <div class="status-diagram">intake → clarifying → prd_pending_confirmation → approved_for_dev
+                                                       ↓
+             in_tdd_test ←────────────────────── in_dev
+                  ↓                                   ↓
+         in_test_acceptance ←──────────────── needs_revision
+                ↓      ↓
+          accepted   test_failed
+              ↓
+          deployed → delivered</div>
+</section>
+
+<section>
+  <h2>API 端点</h2>
+  <div class="card">
+    <table>
+      <tr><th>方法</th><th>路径</th><th>说明</th></tr>
+      <tr><td>GET</td><td>/health</td><td>健康检查（无需认证）</td></tr>
+      <tr><td>POST</td><td>/projects</td><td>创建项目</td></tr>
+      <tr><td>GET</td><td>/projects</td><td>列出项目（分页）</td></tr>
+      <tr><td>GET</td><td>/projects/{id}</td><td>获取单个项目</td></tr>
+      <tr><td>PUT</td><td>/projects/{id}</td><td>更新项目</td></tr>
+      <tr><td>DELETE</td><td>/projects/{id}</td><td>删除项目</td></tr>
+      <tr><td>POST</td><td>/proposals</td><td>创建提案</td></tr>
+      <tr><td>GET</td><td>/proposals</td><td>列出提案（分页+过滤）</td></tr>
+      <tr><td>GET</td><td>/proposals/{id}</td><td>获取单个提案</td></tr>
+      <tr><td>PUT</td><td>/proposals/{id}/status</td><td>更新状态（状态机校验）</td></tr>
+      <tr><td>PUT</td><td>/proposals/{id}/fields</td><td>更新字段</td></tr>
+      <tr><td>DELETE</td><td>/proposals/{id}</td><td>删除提案</td></tr>
+      <tr><td>POST</td><td>/validate</td><td>干跑校验</td></tr>
+      <tr><td>GET</td><td>/audit</td><td>查询审计日志</td></tr>
+      <tr><td>POST</td><td>/replay</td><td>回滚操作（dry-run/undo）</td></tr>
+      <tr><td>POST</td><td>/backup</td><td>立即备份</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Web UI</h2>
+  <div class="card">
+    <p>启动 <code>ai-superpower run</code> 后访问 <code>http://localhost:8000</code>：</p>
+    <div class="code">ai-superpower run
+# 访问 http://localhost:8000
+# - /web/projects  — 项目列表 + 新建/编辑
+# - /web/proposals — 提案列表 + 筛选 + 新建
+# - /web/audit     — 审计日志时间线
+# - /web/settings  — 配置页面</div>
+  </div>
+</section>
+
+<section>
+  <h2>定时备份</h2>
+  <div class="card">
+    <p>配置 <code>~/.ai-superpower/config.toml</code> 启用：</p>
+    <div class="code">[backup]
+enabled = true
+frequency = "1h"      # 1h / 6h / 1d
+max_copies = 48
+local_path = "/path/to/backups"
+remote_repo = ""       # git remote for push
+remote_branch = "backup"</div>
+  </div>
+</section>
+
+<section>
+  <h2>安装</h2>
+  <div class="code"># 从源码安装
+cd ai-superpower
+pip install -e . --break-system-packages
+
+# 或使用安装脚本
+bash deploy/install.sh</div>
+</section>
+
+<section>
+  <h2>CLI 命令</h2>
+  <div class="code"># 启动服务器
+ai-superpower run
+
+# 项目
+ai-superpower project create --name "我的项目"
+ai-superpower project list
+ai-superpower project get PRJ-20250523-001
+
+# 提案
+ai-superpower proposal create --title "新功能" --owner alice --project-id PRJ-20250523-001 --stage ideation
+ai-superpower proposal list
+ai-superpower proposal get P-20250523-001
+ai-superpower proposal update-status P-20250523-001 --status clarifying
+
+# 工具
+ai-superpower validate --data '{"project_id":"PRJ-20250523-001","stage":"ideation"}'
+ai-superpower audit --page 1 --page-size 100
+ai-superpower replay --last 10 --dry-run
+ai-superpower replay --undo P-20250523-001
+ai-superpower backup
+ai-superpower sync-to-index</div>
+</section>
+
+<footer>
+  <p><a href="https://github.com/YeLuo45/ai-superpower">GitHub</a> · MIT License</p>
+  <p>防篡改 CSV 存储 · JSON 字段级审计 · FastAPI + Unix Socket</p>
+</footer>
+</div>
+</body>
+</html>
