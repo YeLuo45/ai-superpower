@@ -32,12 +32,26 @@ def cmd_run(args):
     except OSError as e:
         if e.errno == 98:  # address already in use
             import subprocess
-            result = subprocess.run(
-                ["ss", "-tlnp", f"sport = :{port}"],
-                capture_output=True, text=True
-            )
+            # Try multiple commands to find the process using the port
+            cmds = [
+                ["ss", "-tlnp"],
+                ["netstat", "-tlnp"],
+                ["fuser", f"{port}/tcp"],
+            ]
+            info = ""
+            for cmd in cmds:
+                try:
+                    r = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+                    lines = [l for l in r.stdout.splitlines() if f":{port}" in l or str(port) in l]
+                    if lines:
+                        info += "\n".join(lines) + "\n"
+                except Exception:
+                    pass
             print(f"ERROR: Port {port} is already in use.", file=sys.stderr)
-            print(f"Current listener:\n{result.stdout}", file=sys.stderr)
+            if info:
+                print(f"Current listener:\n{info}", file=sys.stderr)
+            else:
+                print("Run 'ss -tlnp' or 'netstat -tlnp' to find the process.", file=sys.stderr)
             return
         raise
 

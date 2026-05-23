@@ -27,3 +27,4 @@ build-backend = "setuptools.build_meta"
 
 [api]
 key = "xzz@321.com"
+allow_delete = false
