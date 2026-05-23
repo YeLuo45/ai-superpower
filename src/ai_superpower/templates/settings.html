@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - ai-superpower</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/web/projects">Projects</a>
+        <a href="/web/proposals">Proposals</a>
+        <a href="/web/audit">Audit</a>
+        <a href="/web/settings" class="active">Settings</a>
+    </nav>
+    <main>
+        <h1>Settings</h1>
+        <div class="card">
+            <h3>API Configuration</h3>
+            <p>API Key: <code id="api-key-display">••••••••</code> <button onclick="showApiKey()">Show</button></p>
+            <p>Socket: <code>/tmp/ai-superpower.sock</code></p>
+            <p>Data: <code>/home/hermes/ai-superpower/db</code></p>
+        </div>
+        <div class="card">
+            <h3>Backup</h3>
+            <button onclick="runBackup()">Run Backup Now</button>
+            <pre id="backup-output"></pre>
+        </div>
+    </main>
+    <script src="/static/app.js"></script>
+</body>
+</html>
