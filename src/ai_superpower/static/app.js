@@ -123,6 +123,7 @@ async function submitProjectForm(e) {
     const body = {
         name: document.getElementById('name').value,
         git_repo: document.getElementById('git_repo').value,
+        prj_url: document.getElementById('prj_url').value,
         local_path: document.getElementById('local_path').value,
         description: document.getElementById('description').value,
     };
