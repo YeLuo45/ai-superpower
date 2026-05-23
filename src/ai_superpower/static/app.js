@@ -75,12 +75,14 @@ async function loadProjects(page = 1) {
         const el = document.getElementById('project-list');
         if (!data.items.length) { el.innerHTML = '<p>No projects found.</p>'; }
         else {
-            el.innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Proposals</th><th>Git Repo</th><th>PRJ URL</th><th>Create At</th><th>Last Update</th></tr></thead><tbody>
-                ${data.items.map(p => `<tr onclick="showProjectDetail('${p.id}')" style="cursor:pointer">
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Proposals</th><th>Git Repo</th><th>PRJ URL</th><th>Create At</th><th>Last Update</th><th></th></tr></thead><tbody>
+                ${data.items.map(p => `<tr>
                     <td>${p.id}</td><td>${esc(p.name)}</td><td>${p.proposal_count}</td>
                     <td>${p.git_repo ? `<a href="${esc(p.git_repo)}" target="_blank">${esc(p.git_repo)}</a>` : '—'}</td>
                     <td>${p.prj_url ? `<a href="${esc(p.prj_url)}" target="_blank">${esc(p.prj_url)}</a>` : '—'}</td>
                     <td>${p.create_at || '—'}</td><td>${p.last_update}</td>
+                    <td><button onclick="showProjectForm('${p.id}')">Edit</button></td>
+                    <td><button onclick="deleteProject('${p.id}')" style="color:#f87171">Del</button></td>
                 </tr>`).join('')}
             </tbody></table>`;
         }
@@ -152,11 +154,13 @@ async function loadProposals(page = 1) {
         const el = document.getElementById('proposal-list');
         if (!data.items.length) { el.innerHTML = '<p>No proposals found.</p>'; }
         else {
-            el.innerHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Stage</th><th>Owner</th><th>Project</th></tr></thead><tbody>
-                ${data.items.map(p => `<tr onclick="showProposalDetail('${p.id}')" style="cursor:pointer">
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Stage</th><th>Owner</th><th>Project</th><th></th><th></th></tr></thead><tbody>
+                ${data.items.map(p => `<tr>
                     <td>${p.id}</td><td>${esc(p.title)}</td>
                     <td><span class="badge badge-${esc(p.status)}">${p.status}</span></td>
                     <td>${p.stage || '—'}</td><td>${p.owner || '—'}</td><td>${p.project_id}</td>
+                    <td><button onclick="showProposalForm('${p.id}')">Edit</button></td>
+                    <td><button onclick="deleteProposal('${p.id}')" style="color:#f87171">Del</button></td>
                 </tr>`).join('')}
             </tbody></table>`;
         }
@@ -297,3 +301,21 @@ function renderPagination(elId, page, total, pageSize, loadFn) {
 document.addEventListener('click', e => {
     if (e.target.classList.contains('modal')) closeModal();
 });
+
+// ─── Delete ────────────────────────────────────────────────────────────────────
+
+async function deleteProject(id) {
+    if (!confirm(`Delete project ${id}?`)) return;
+    try {
+        await api('DELETE', '/projects/' + id);
+        loadProjects(currentPage.projects);
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function deleteProposal(id) {
+    if (!confirm(`Delete proposal ${id}?`)) return;
+    try {
+        await api('DELETE', '/proposals/' + id);
+        loadProposals(currentPage.proposals);
+    } catch (e) { alert('Error: ' + e.message); }
+}
