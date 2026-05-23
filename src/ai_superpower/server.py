@@ -87,7 +87,7 @@ def health():
 
 # ─── Projects ─────────────────────────────────────────────────────────────────
 
-@app.post("/projects", response_model=Project, status_code=201)
+@app.post("/api/projects", response_model=Project, status_code=201)
 def create_project(data: ProjectCreate, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     errors = s.validate_project(data.model_dump())
@@ -101,7 +101,7 @@ def create_project(data: ProjectCreate, _ak: str = Header(..., alias="X-API-Key"
     )
 
 
-@app.get("/projects", response_model=PageResponse)
+@app.get("/api/projects", response_model=PageResponse)
 def list_projects(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -113,7 +113,7 @@ def list_projects(
     return PageResponse(total=total, page=page, page_size=page_size, items=[i.model_dump() for i in items])
 
 
-@app.get("/projects/{project_id}", response_model=Project)
+@app.get("/api/projects/{project_id}", response_model=Project)
 def get_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     project = s.get_project(project_id)
@@ -122,7 +122,7 @@ def get_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
     return project
 
 
-@app.put("/projects/{project_id}", response_model=Project)
+@app.put("/api/projects/{project_id}", response_model=Project)
 def update_project(project_id: str, data: ProjectUpdate, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     existing = s.get_project(project_id)
@@ -134,7 +134,7 @@ def update_project(project_id: str, data: ProjectUpdate, _ak: str = Header(..., 
     return s.update_project(project_id, updates)
 
 
-@app.delete("/projects/{project_id}", status_code=204)
+@app.delete("/api/projects/{project_id}", status_code=204)
 def delete_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     if not s.config.allow_delete:
@@ -153,7 +153,7 @@ def delete_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
 
 # ─── Proposals ───────────────────────────────────────────────────────────────
 
-@app.post("/proposals", response_model=Proposal, status_code=201)
+@app.post("/api/proposals", response_model=Proposal, status_code=201)
 def create_proposal(data: ProposalCreate, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     errors = s.validate_proposal(data.model_dump())
@@ -162,7 +162,7 @@ def create_proposal(data: ProposalCreate, _ak: str = Header(..., alias="X-API-Ke
     return s.create_proposal(data.model_dump())
 
 
-@app.get("/proposals", response_model=PageResponse)
+@app.get("/api/proposals", response_model=PageResponse)
 def list_proposals(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -182,7 +182,7 @@ def list_proposals(
     return PageResponse(total=total, page=page, page_size=page_size, items=[i.model_dump() for i in items])
 
 
-@app.get("/proposals/{proposal_id}", response_model=Proposal)
+@app.get("/api/proposals/{proposal_id}", response_model=Proposal)
 def get_proposal(proposal_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     proposal = s.get_proposal(proposal_id)
@@ -191,7 +191,7 @@ def get_proposal(proposal_id: str, _ak: str = Header(..., alias="X-API-Key")):
     return proposal
 
 
-@app.put("/proposals/{proposal_id}/status", response_model=Proposal)
+@app.put("/api/proposals/{proposal_id}/status", response_model=Proposal)
 def update_proposal_status(proposal_id: str, data: ProposalStatusUpdate, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     try:
@@ -200,7 +200,7 @@ def update_proposal_status(proposal_id: str, data: ProposalStatusUpdate, _ak: st
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.put("/proposals/{proposal_id}/fields", response_model=Proposal)
+@app.put("/api/proposals/{proposal_id}/fields", response_model=Proposal)
 def update_proposal_fields(proposal_id: str, data: ProposalUpdate, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     existing = s.get_proposal(proposal_id)
@@ -217,7 +217,7 @@ def update_proposal_fields(proposal_id: str, data: ProposalUpdate, _ak: str = He
     return s.update_proposal(proposal_id, updates)
 
 
-@app.delete("/proposals/{proposal_id}", status_code=204)
+@app.delete("/api/proposals/{proposal_id}", status_code=204)
 def delete_proposal(proposal_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     if not s.config.allow_delete:
@@ -246,7 +246,7 @@ def validate(data: ValidatePayload, _ak: str = Header(..., alias="X-API-Key")):
 
 # ─── Audit ───────────────────────────────────────────────────────────────────
 
-@app.get("/audit", response_model=PageResponse)
+@app.get("/api/audit", response_model=PageResponse)
 def list_audit(
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=500),

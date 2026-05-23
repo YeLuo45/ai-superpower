@@ -97,14 +97,14 @@ class TestAuth:
 
 class TestProjectEndpoints:
     def test_create_project(self, client):
-        r = client.post("/projects", json={"name": "New Project", "git_repo": "https://github.com/test"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "New Project", "git_repo": "https://github.com/test"}, headers=AUTH_HEADER)
         assert r.status_code == 201
         data = r.json()
         assert data["name"] == "New Project"
         assert data["id"].startswith("PRJ-")
 
     def test_list_projects(self, client):
-        r = client.get("/projects", headers=AUTH_HEADER)
+        r = client.get("/api/projects", headers=AUTH_HEADER)
         assert r.status_code == 200
         data = r.json()
         assert "total" in data
@@ -112,47 +112,47 @@ class TestProjectEndpoints:
         assert data["total"] >= 1
 
     def test_list_projects_pagination(self, client):
-        r = client.get("/projects?page=1&page_size=1", headers=AUTH_HEADER)
+        r = client.get("/api/projects?page=1&page_size=1", headers=AUTH_HEADER)
         assert r.status_code == 200
         data = r.json()
         assert len(data["items"]) == 1
         assert data["total"] >= 1
 
     def test_get_project(self, client):
-        r = client.post("/projects", json={"name": "Get Me"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "Get Me"}, headers=AUTH_HEADER)
         project_id = r.json()["id"]
-        r = client.get(f"/projects/{project_id}", headers=AUTH_HEADER)
+        r = client.get(f"/api/projects/{project_id}", headers=AUTH_HEADER)
         assert r.status_code == 200
         assert r.json()["name"] == "Get Me"
 
     def test_get_project_not_found(self, client):
-        r = client.get("/projects/PRJ-20991231-999", headers=AUTH_HEADER)
+        r = client.get("/api/projects/PRJ-20991231-999", headers=AUTH_HEADER)
         assert r.status_code == 404
 
     def test_update_project(self, client):
-        r = client.post("/projects", json={"name": "Old"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "Old"}, headers=AUTH_HEADER)
         project_id = r.json()["id"]
-        r = client.put(f"/projects/{project_id}", json={"name": "New", "description": "Desc"}, headers=AUTH_HEADER)
+        r = client.put(f"/api/projects/{project_id}", json={"name": "New", "description": "Desc"}, headers=AUTH_HEADER)
         assert r.status_code == 200
         data = r.json()
         assert data["name"] == "New"
         assert data["description"] == "Desc"
 
     def test_update_project_not_found(self, client):
-        r = client.put("/projects/PRJ-20991231-999", json={"name": "X"}, headers=AUTH_HEADER)
+        r = client.put("/api/projects/PRJ-20991231-999", json={"name": "X"}, headers=AUTH_HEADER)
         assert r.status_code == 404
 
     def test_update_project_no_fields(self, client):
-        r = client.post("/projects", json={"name": "X"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "X"}, headers=AUTH_HEADER)
         project_id = r.json()["id"]
-        r = client.put(f"/projects/{project_id}", json={}, headers=AUTH_HEADER)
+        r = client.put(f"/api/projects/{project_id}", json={}, headers=AUTH_HEADER)
         assert r.status_code == 400
 
     def test_delete_project(self, client):
         # allow_delete=True in storage fixture
-        r = client.post("/projects", json={"name": "Delete Me"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "Delete Me"}, headers=AUTH_HEADER)
         project_id = r.json()["id"]
-        r = client.delete(f"/projects/{project_id}", headers=AUTH_HEADER)
+        r = client.delete(f"/api/projects/{project_id}", headers=AUTH_HEADER)
         assert r.status_code == 204
 
     def test_delete_project_disabled_returns_403(self, client):
@@ -162,14 +162,14 @@ class TestProjectEndpoints:
         original_allow = server_mod._storage.config.allow_delete
         server_mod._storage.config.allow_delete = False
         try:
-            r = client.delete("/projects/PRJ-NONEXISTENT-999", headers=AUTH_HEADER)
+            r = client.delete("/api/projects/PRJ-NONEXISTENT-999", headers=AUTH_HEADER)
             assert r.status_code == 403
             assert "allow_delete" in r.json()["detail"]
         finally:
             server_mod._storage.config.allow_delete = original_allow
 
     def test_delete_project_not_found(self, client):
-        r = client.delete("/projects/PRJ-20991231-999", headers=AUTH_HEADER)
+        r = client.delete("/api/projects/PRJ-20991231-999", headers=AUTH_HEADER)
         assert r.status_code == 404
 
 
@@ -177,12 +177,12 @@ class TestProjectEndpoints:
 
 class TestProposalEndpoints:
     def _get_project_id(self, client):
-        r = client.get("/projects", headers=AUTH_HEADER)
+        r = client.get("/api/projects", headers=AUTH_HEADER)
         return r.json()["items"][0]["id"]
 
     def test_create_proposal(self, client):
         project_id = self._get_project_id(client)
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "My Proposal",
             "owner": "boss",
             "project_id": project_id,
@@ -195,7 +195,7 @@ class TestProposalEndpoints:
 
     def test_create_proposal_invalid_stage(self, client):
         project_id = self._get_project_id(client)
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "Bad Stage",
             "owner": "boss",
             "project_id": project_id,
@@ -205,7 +205,7 @@ class TestProposalEndpoints:
         assert r.status_code == 422
 
     def test_create_proposal_invalid_project_id(self, client):
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "X",
             "owner": "boss",
             "project_id": "PRJ-20991231-999",
@@ -214,7 +214,7 @@ class TestProposalEndpoints:
         assert r.status_code == 400
 
     def test_list_proposals(self, client):
-        r = client.get("/proposals", headers=AUTH_HEADER)
+        r = client.get("/api/proposals", headers=AUTH_HEADER)
         assert r.status_code == 200
         data = r.json()
         assert "total" in data
@@ -222,14 +222,14 @@ class TestProposalEndpoints:
 
     def test_list_proposals_filter_project_id(self, client):
         project_id = self._get_project_id(client)
-        r = client.get(f"/proposals?project_id={project_id}", headers=AUTH_HEADER)
+        r = client.get(f"/api/proposals?project_id={project_id}", headers=AUTH_HEADER)
         assert r.status_code == 200
         data = r.json()
         for item in data["items"]:
             assert item["project_id"] == project_id
 
     def test_list_proposals_filter_status(self, client):
-        r = client.get("/proposals?status=intake", headers=AUTH_HEADER)
+        r = client.get("/api/proposals?status=intake", headers=AUTH_HEADER)
         assert r.status_code == 200
         data = r.json()
         for item in data["items"]:
@@ -237,19 +237,19 @@ class TestProposalEndpoints:
 
     def test_get_proposal(self, client):
         project_id = self._get_project_id(client)
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "Get Me",
             "owner": "boss",
             "project_id": project_id,
             "stage": "ideation",
         }, headers=AUTH_HEADER)
         proposal_id = r.json()["id"]
-        r = client.get(f"/proposals/{proposal_id}", headers=AUTH_HEADER)
+        r = client.get(f"/api/proposals/{proposal_id}", headers=AUTH_HEADER)
         assert r.status_code == 200
         assert r.json()["title"] == "Get Me"
 
     def test_get_proposal_not_found(self, client):
-        r = client.get("/proposals/P-20991231-999", headers=AUTH_HEADER)
+        r = client.get("/api/proposals/P-20991231-999", headers=AUTH_HEADER)
         assert r.status_code == 404
 
 
@@ -257,9 +257,9 @@ class TestProposalEndpoints:
 
 class TestProposalStatusUpdate:
     def _create_proposal(self, client):
-        r = client.get("/projects", headers=AUTH_HEADER)
+        r = client.get("/api/projects", headers=AUTH_HEADER)
         project_id = r.json()["items"][0]["id"]
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "Status Test",
             "owner": "boss",
             "project_id": project_id,
@@ -269,19 +269,19 @@ class TestProposalStatusUpdate:
 
     def test_update_status_valid_transition(self, client):
         proposal_id = self._create_proposal(client)
-        r = client.put(f"/proposals/{proposal_id}/status", json={"status": "clarifying"}, headers=AUTH_HEADER)
+        r = client.put(f"/api/proposals/{proposal_id}/status", json={"status": "clarifying"}, headers=AUTH_HEADER)
         assert r.status_code == 200
         assert r.json()["status"] == "clarifying"
 
     def test_update_status_invalid_transition(self, client):
         proposal_id = self._create_proposal(client)
-        r = client.put(f"/proposals/{proposal_id}/status", json={"status": "accepted"}, headers=AUTH_HEADER)
+        r = client.put(f"/api/proposals/{proposal_id}/status", json={"status": "accepted"}, headers=AUTH_HEADER)
         assert r.status_code == 400
         assert "Invalid status transition" in r.json()["detail"]
 
     def test_update_status_invalid_status_value(self, client):
         proposal_id = self._create_proposal(client)
-        r = client.put(f"/proposals/{proposal_id}/status", json={"status": "not_a_real_status"}, headers=AUTH_HEADER)
+        r = client.put(f"/api/proposals/{proposal_id}/status", json={"status": "not_a_real_status"}, headers=AUTH_HEADER)
         # Pydantic ValidationError → FastAPI 422
         assert r.status_code == 422
 
@@ -290,9 +290,9 @@ class TestProposalStatusUpdate:
 
 class TestProposalFieldsUpdate:
     def _create_proposal(self, client):
-        r = client.get("/projects", headers=AUTH_HEADER)
+        r = client.get("/api/projects", headers=AUTH_HEADER)
         project_id = r.json()["items"][0]["id"]
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "Fields Test",
             "owner": "boss",
             "project_id": project_id,
@@ -302,7 +302,7 @@ class TestProposalFieldsUpdate:
 
     def test_update_fields(self, client):
         proposal_id = self._create_proposal(client)
-        r = client.put(f"/proposals/{proposal_id}/fields", json={
+        r = client.put(f"/api/proposals/{proposal_id}/fields", json={
             "title": "New Title",
             "owner": "alice",
         }, headers=AUTH_HEADER)
@@ -313,7 +313,7 @@ class TestProposalFieldsUpdate:
 
     def test_update_fields_invalid_enum(self, client):
         proposal_id = self._create_proposal(client)
-        r = client.put(f"/proposals/{proposal_id}/fields", json={
+        r = client.put(f"/api/proposals/{proposal_id}/fields", json={
             "prd_confirmation": "invalid_value",
         }, headers=AUTH_HEADER)
         assert r.status_code == 400
@@ -323,7 +323,7 @@ class TestProposalFieldsUpdate:
 
 class TestValidateEndpoint:
     def test_validate_valid_data(self, client):
-        r = client.get("/projects", headers=AUTH_HEADER)
+        r = client.get("/api/projects", headers=AUTH_HEADER)
         project_id = r.json()["items"][0]["id"]
         r = client.post("/validate", json={
             "data": {
@@ -357,8 +357,8 @@ class TestValidateEndpoint:
 
 class TestAuditEndpoint:
     def test_audit_after_create(self, client):
-        client.post("/projects", json={"name": "Audit Test"}, headers=AUTH_HEADER)
-        r = client.get("/audit", headers=AUTH_HEADER)
+        client.post("/api/projects", json={"name": "Audit Test"}, headers=AUTH_HEADER)
+        r = client.get("/api/audit", headers=AUTH_HEADER)
         assert r.status_code == 200
         data = r.json()
         assert data["total"] >= 1
@@ -368,10 +368,10 @@ class TestAuditEndpoint:
 
 class TestEndToEndFlow:
     def test_full_proposal_lifecycle(self, client):
-        r = client.post("/projects", json={"name": "E2E Project"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "E2E Project"}, headers=AUTH_HEADER)
         project_id = r.json()["id"]
 
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "E2E Proposal",
             "owner": "boss",
             "project_id": project_id,
@@ -381,13 +381,13 @@ class TestEndToEndFlow:
         assert r.json()["status"] == "intake"
 
         for new_status in ["clarifying", "prd_pending_confirmation", "approved_for_dev", "in_dev"]:
-            r = client.put(f"/proposals/{proposal_id}/status", json={"status": new_status}, headers=AUTH_HEADER)
+            r = client.put(f"/api/proposals/{proposal_id}/status", json={"status": new_status}, headers=AUTH_HEADER)
             assert r.json()["status"] == new_status
 
-        r = client.put(f"/proposals/{proposal_id}/fields", json={"notes": "E2E test notes"}, headers=AUTH_HEADER)
+        r = client.put(f"/api/proposals/{proposal_id}/fields", json={"notes": "E2E test notes"}, headers=AUTH_HEADER)
         assert r.json()["notes"] == "E2E test notes"
 
-        r = client.get(f"/proposals/{proposal_id}", headers=AUTH_HEADER)
+        r = client.get(f"/api/proposals/{proposal_id}", headers=AUTH_HEADER)
         data = r.json()
         assert data["status"] == "in_dev"
         assert data["notes"] == "E2E test notes"
@@ -398,11 +398,11 @@ class TestEndToEndFlow:
 
 class TestPaginationBoundary:
     def _create_project(self, client):
-        r = client.post("/projects", json={"name": "Pag Test"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "Pag Test"}, headers=AUTH_HEADER)
         return r.json()["id"]
 
     def _create_proposal(self, client, project_id, title):
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": title,
             "owner": "boss",
             "project_id": project_id,
@@ -413,7 +413,7 @@ class TestPaginationBoundary:
         pid = self._create_project(client)
         for i in range(3):
             self._create_proposal(client, pid, f"Page Item {i}")
-        r = client.get("/proposals?page=1&page_size=1", headers=AUTH_HEADER)
+        r = client.get("/api/proposals?page=1&page_size=1", headers=AUTH_HEADER)
         assert r.status_code == 200
         assert len(r.json()["items"]) == 1
         assert r.json()["total"] >= 3
@@ -421,7 +421,7 @@ class TestPaginationBoundary:
     def test_page_beyond_range(self, client):
         pid = self._create_project(client)
         self._create_proposal(client, pid, "Only One")
-        r = client.get("/proposals?page=999&page_size=50", headers=AUTH_HEADER)
+        r = client.get("/api/proposals?page=999&page_size=50", headers=AUTH_HEADER)
         assert r.status_code == 200
         assert len(r.json()["items"]) == 0
         assert r.json()["total"] >= 1
@@ -431,12 +431,12 @@ class TestPaginationBoundary:
         self._create_proposal(client, pid, "Owner Alice")
         self._create_proposal(client, pid, "Owner Bob")
         # Update owner of second proposal via fields
-        r = client.get("/proposals", headers=AUTH_HEADER)
+        r = client.get("/api/proposals", headers=AUTH_HEADER)
         items = r.json()["items"]
         for item in items:
             if item["title"] == "Owner Alice":
-                r = client.put(f"/proposals/{item['id']}/fields", json={"owner": "alice"}, headers=AUTH_HEADER)
-        r = client.get("/proposals?owner=alice", headers=AUTH_HEADER)
+                r = client.put(f"/api/proposals/{item['id']}/fields", json={"owner": "alice"}, headers=AUTH_HEADER)
+        r = client.get("/api/proposals?owner=alice", headers=AUTH_HEADER)
         assert r.status_code == 200
         for item in r.json()["items"]:
             assert item["owner"] == "alice"
@@ -444,7 +444,7 @@ class TestPaginationBoundary:
     def test_list_proposals_filter_stage(self, client):
         pid = self._create_project(client)
         self._create_proposal(client, pid, "Stage Idea")
-        r = client.get("/proposals?stage=ideation", headers=AUTH_HEADER)
+        r = client.get("/api/proposals?stage=ideation", headers=AUTH_HEADER)
         assert r.status_code == 200
         for item in r.json()["items"]:
             assert item["stage"] == "ideation"
@@ -452,7 +452,7 @@ class TestPaginationBoundary:
     def test_list_proposals_filter_combined(self, client):
         pid = self._create_project(client)
         self._create_proposal(client, pid, "Combo Test")
-        r = client.get(f"/proposals?project_id={pid}&status=intake", headers=AUTH_HEADER)
+        r = client.get(f"/api/proposals?project_id={pid}&status=intake", headers=AUTH_HEADER)
         assert r.status_code == 200
         for item in r.json()["items"]:
             assert item["project_id"] == pid
@@ -463,13 +463,13 @@ class TestPaginationBoundary:
 
 class TestFieldBoundary:
     def _create_project(self, client):
-        r = client.post("/projects", json={"name": "Field Test"}, headers=AUTH_HEADER)
+        r = client.post("/api/projects", json={"name": "Field Test"}, headers=AUTH_HEADER)
         return r.json()["id"]
 
     def test_empty_string_fields_accepted(self, client):
         """Empty strings are valid for optional string fields."""
         pid = self._create_project(client)
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "Empty Fields",
             "owner": "boss",
             "project_id": pid,
@@ -484,7 +484,7 @@ class TestFieldBoundary:
 
     def test_update_with_empty_string(self, client):
         pid = self._create_project(client)
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "Update Empty",
             "owner": "boss",
             "project_id": pid,
@@ -492,14 +492,14 @@ class TestFieldBoundary:
             "notes": "has notes",
         }, headers=AUTH_HEADER)
         proposal_id = r.json()["id"]
-        r = client.put(f"/proposals/{proposal_id}/fields", json={"notes": ""}, headers=AUTH_HEADER)
+        r = client.put(f"/api/proposals/{proposal_id}/fields", json={"notes": ""}, headers=AUTH_HEADER)
         assert r.status_code == 200
         assert r.json()["notes"] == ""
 
     def test_proposal_id_not_updated_if_in_body(self, client):
         """发送包含 id 的请求体，API 应拒绝（id 不在 ProposalUpdate 字段中）。"""
         pid = self._create_project(client)
-        r = client.post("/proposals", json={
+        r = client.post("/api/proposals", json={
             "title": "ID Test",
             "owner": "boss",
             "project_id": pid,
@@ -509,10 +509,10 @@ class TestFieldBoundary:
         # ProposalUpdate 不包含 id 字段，Pydantic extra='forbid' 拒绝额外字段
         # FastAPI 对 Pydantic ValidationError 返回 422，但 storage 层格式化错误返回 400
         # 两者都表示拒绝，重点是 proposal_id 未被改变
-        r = client.put(f"/proposals/{proposal_id}/fields", json={"id": "P-20991231-999"}, headers=AUTH_HEADER)
+        r = client.put(f"/api/proposals/{proposal_id}/fields", json={"id": "P-20991231-999"}, headers=AUTH_HEADER)
         assert r.status_code in (400, 422)
         # 确认原 proposal 不变（未被篡改成 P-20991231-999）
-        r2 = client.get(f"/proposals/{proposal_id}", headers=AUTH_HEADER)
+        r2 = client.get(f"/api/proposals/{proposal_id}", headers=AUTH_HEADER)
         assert r2.json()["id"] == proposal_id
 
 
