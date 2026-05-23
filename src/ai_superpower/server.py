@@ -143,6 +143,7 @@ def update_project(project_id: str, data: ProjectUpdate, _ak: str = Header(..., 
 @app.delete("/api/projects/{project_id}", status_code=204)
 def delete_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
+    print(f"[DEBUG] allow_delete={s.config.allow_delete}", flush=True)
     if not s.config.allow_delete:
         raise HTTPException(
             status_code=403,
@@ -229,6 +230,7 @@ def update_proposal_fields(proposal_id: str, data: ProposalUpdate, _ak: str = He
 @app.delete("/api/proposals/{proposal_id}", status_code=204)
 def delete_proposal(proposal_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
+    print(f"[DEBUG] allow_delete={s.config.allow_delete}", flush=True)
     if not s.config.allow_delete:
         raise HTTPException(
             status_code=403,
