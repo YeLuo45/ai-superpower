@@ -46,39 +46,70 @@ class APIClient:
         if body_bytes:
             sock.sendall(body_bytes)
 
-        # Read response
-        response = b""
+        # Read response — read headers first, then body by Content-Length
+        header_bytes = b""
         while True:
             chunk = sock.recv(4096)
             if not chunk:
                 break
-            response += chunk
-            if b"\r\n\r\n" in response:
+            header_bytes += chunk
+            if b"\r\n\r\n" in header_bytes:
                 break
+
+        if b"\r\n\r\n" not in header_bytes:
+            sock.close()
+            sys.exit("Failed to read response headers")
+
+        # Parse headers
+        header_text = header_bytes.decode("utf-8")
+        headers_part, body_candidate = header_text.split("\r\n\r\n", 1)
+        status_line = headers_part.split("\r\n")[0]
+        status_code = int(status_line.split()[1])
+
+        # Extract Content-Length
+        content_length = None
+        for line in headers_part.split("\r\n")[1:]:
+            if line.lower().startswith("content-length:"):
+                content_length = int(line.split(":", 1)[1].strip())
+                break
+
+        if status_code == 204:
+            sock.close()
+            return {}
+
+        # Build body — body_candidate may contain partial body if headers+body
+        # arrived in same recv() chunk, so use it as starting point
+        response_body = body_candidate.encode("utf-8") if isinstance(body_candidate, str) else body_candidate
+
+        if content_length is not None:
+            # Read exactly content_length bytes
+            while len(response_body) < content_length:
+                chunk = sock.recv(min(4096, content_length - len(response_body)))
+                if not chunk:
+                    break
+                response_body += chunk
+            response_body = response_body[:content_length]
+        else:
+            # No Content-Length — read until connection closes
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                response_body += chunk
 
         sock.close()
 
-        # Parse HTTP response
-        response_text = response.decode("utf-8")
-        if "\r\n\r\n" in response_text:
-            _, body = response_text.split("\r\n\r\n", 1)
-        else:
-            body = response_text
-
-        # Extract status code
-        status_line = response_text.split("\r\n")[0]
-        status_code = int(status_line.split()[1])
-
-        if status_code == 204:
-            return {}
-
-        result = json.loads(body) if body.strip() else {}
-
         if status_code >= 400:
-            detail = result.get("detail", f"HTTP {status_code}")
+            detail = ""
+            try:
+                result = json.loads(response_body.decode("utf-8"))
+                detail = result.get("detail", f"HTTP {status_code}")
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                detail = f"HTTP {status_code}"
             sys.stderr.write(f"Error: {detail}\n")
             sys.exit(1)
 
+        result = json.loads(response_body.decode("utf-8"))
         return result
 
     # ─── Projects ────────────────────────────────────────────────────────────
