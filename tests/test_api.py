@@ -375,3 +375,146 @@ class TestEndToEndFlow:
         assert data["status"] == "in_dev"
         assert data["notes"] == "E2E test notes"
         assert data["title"] == "E2E Proposal"
+
+
+# ─── Pagination Boundary Cases ────────────────────────────────────────────────
+
+class TestPaginationBoundary:
+    def _create_project(self, client):
+        r = client.post("/projects", json={"name": "Pag Test"}, headers=AUTH_HEADER)
+        return r.json()["id"]
+
+    def _create_proposal(self, client, project_id, title):
+        r = client.post("/proposals", json={
+            "title": title,
+            "owner": "boss",
+            "project_id": project_id,
+            "stage": "ideation",
+        }, headers=AUTH_HEADER)
+
+    def test_page_size_1(self, client):
+        pid = self._create_project(client)
+        for i in range(3):
+            self._create_proposal(client, pid, f"Page Item {i}")
+        r = client.get("/proposals?page=1&page_size=1", headers=AUTH_HEADER)
+        assert r.status_code == 200
+        assert len(r.json()["items"]) == 1
+        assert r.json()["total"] >= 3
+
+    def test_page_beyond_range(self, client):
+        pid = self._create_project(client)
+        self._create_proposal(client, pid, "Only One")
+        r = client.get("/proposals?page=999&page_size=50", headers=AUTH_HEADER)
+        assert r.status_code == 200
+        assert len(r.json()["items"]) == 0
+        assert r.json()["total"] >= 1
+
+    def test_list_proposals_filter_owner(self, client):
+        pid = self._create_project(client)
+        self._create_proposal(client, pid, "Owner Alice")
+        self._create_proposal(client, pid, "Owner Bob")
+        # Update owner of second proposal via fields
+        r = client.get("/proposals", headers=AUTH_HEADER)
+        items = r.json()["items"]
+        for item in items:
+            if item["title"] == "Owner Alice":
+                r = client.put(f"/proposals/{item['id']}/fields", json={"owner": "alice"}, headers=AUTH_HEADER)
+        r = client.get("/proposals?owner=alice", headers=AUTH_HEADER)
+        assert r.status_code == 200
+        for item in r.json()["items"]:
+            assert item["owner"] == "alice"
+
+    def test_list_proposals_filter_stage(self, client):
+        pid = self._create_project(client)
+        self._create_proposal(client, pid, "Stage Idea")
+        r = client.get("/proposals?stage=ideation", headers=AUTH_HEADER)
+        assert r.status_code == 200
+        for item in r.json()["items"]:
+            assert item["stage"] == "ideation"
+
+    def test_list_proposals_filter_combined(self, client):
+        pid = self._create_project(client)
+        self._create_proposal(client, pid, "Combo Test")
+        r = client.get(f"/proposals?project_id={pid}&status=intake", headers=AUTH_HEADER)
+        assert r.status_code == 200
+        for item in r.json()["items"]:
+            assert item["project_id"] == pid
+            assert item["status"] == "intake"
+
+
+# ─── Field Boundary Cases ─────────────────────────────────────────────────────
+
+class TestFieldBoundary:
+    def _create_project(self, client):
+        r = client.post("/projects", json={"name": "Field Test"}, headers=AUTH_HEADER)
+        return r.json()["id"]
+
+    def test_empty_string_fields_accepted(self, client):
+        """Empty strings are valid for optional string fields."""
+        pid = self._create_project(client)
+        r = client.post("/proposals", json={
+            "title": "Empty Fields",
+            "owner": "boss",
+            "project_id": pid,
+            "stage": "ideation",
+            "prd_path": "",
+            "git_repo": "",
+        }, headers=AUTH_HEADER)
+        assert r.status_code == 201
+        data = r.json()
+        assert data["prd_path"] == ""
+        assert data["git_repo"] == ""
+
+    def test_update_with_empty_string(self, client):
+        pid = self._create_project(client)
+        r = client.post("/proposals", json={
+            "title": "Update Empty",
+            "owner": "boss",
+            "project_id": pid,
+            "stage": "ideation",
+            "notes": "has notes",
+        }, headers=AUTH_HEADER)
+        proposal_id = r.json()["id"]
+        r = client.put(f"/proposals/{proposal_id}/fields", json={"notes": ""}, headers=AUTH_HEADER)
+        assert r.status_code == 200
+        assert r.json()["notes"] == ""
+
+    def test_proposal_id_not_updated_if_in_body(self, client):
+        """发送包含 id 的请求体，API 应拒绝（id 不在 ProposalUpdate 字段中）。"""
+        pid = self._create_project(client)
+        r = client.post("/proposals", json={
+            "title": "ID Test",
+            "owner": "boss",
+            "project_id": pid,
+            "stage": "ideation",
+        }, headers=AUTH_HEADER)
+        proposal_id = r.json()["id"]
+        # ProposalUpdate 不包含 id 字段，Pydantic extra='forbid' 拒绝额外字段
+        # FastAPI 对 Pydantic ValidationError 返回 422，但 storage 层格式化错误返回 400
+        # 两者都表示拒绝，重点是 proposal_id 未被改变
+        r = client.put(f"/proposals/{proposal_id}/fields", json={"id": "P-20991231-999"}, headers=AUTH_HEADER)
+        assert r.status_code in (400, 422)
+        # 确认原 proposal 不变（未被篡改成 P-20991231-999）
+        r2 = client.get(f"/proposals/{proposal_id}", headers=AUTH_HEADER)
+        assert r2.json()["id"] == proposal_id
+
+
+# ─── Config Loading ──────────────────────────────────────────────────────────
+
+class TestConfigLoading:
+    def test_config_missing_key_returns_empty_string(self, tmp_path):
+        """Config file with no API key key returns empty string key (not crash)."""
+        import ai_superpower.config as config_mod
+        from pathlib import Path as PathClass
+
+        orig_path = config_mod.CONFIG_PATH
+        no_key_config = tmp_path / "no_key.toml"
+        no_key_config.write_text("")
+
+        config_mod.CONFIG_PATH = PathClass(no_key_config)
+        try:
+            cfg = config_mod.load_config()
+            # Should return APIConfig with empty key, not crash
+            assert cfg.key == ""
+        finally:
+            config_mod.CONFIG_PATH = orig_path
