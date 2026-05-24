@@ -32,6 +32,12 @@ class APIConfig:
     backup_api_key: str = ""
     auto_backup_threshold: int = 5  # 0=disabled
 
+    # Sync
+    sync_target_repo: str = ""
+    sync_enabled: bool = False
+    sync_api_key: str = ""
+    sync_interval_minutes: int = 0  # 0=disabled
+
     def __post_init__(self):
         if self.data_dir:
             dd = Path(self.data_dir)

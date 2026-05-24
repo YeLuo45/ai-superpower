@@ -78,7 +78,12 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     prj_url: Optional[str] = None
     sync_enabled: Optional[str] = None
-    sync_last_run: Optional[str] = None
+
+
+class SyncSettings(BaseModel):
+    sync_target_repo: str = ""
+    sync_enabled: bool = False
+    auto_sync_interval: int = 0  # 0=disabled, minutes
 
 
 class Project(BaseModel):

@@ -18,7 +18,7 @@ dependencies = [
 dev = ["pytest>=8.0.0"]
 
 [project.scripts]
-ai-superpower = "ai_superpower.cli:main"
+aisp = "ai_superpower.cli:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
