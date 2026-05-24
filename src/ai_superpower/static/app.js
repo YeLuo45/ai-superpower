@@ -2,17 +2,26 @@
 // API calls go to relative /api/* paths (proxied by the HTTP server)
 
 const API_BASE = '/api';
-let apiKey = localStorage.getItem('aisp_api_key') || '';
+const AISP_CONFIG = window.AISP_CONFIG || {};
+let apiKey = localStorage.getItem('aisp_api_key') || AISP_CONFIG.api_key || '';
 let currentPage = { projects: 1, proposals: 1, audit: 1 };
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
+function initApiKey() {
+    if (!apiKey && AISP_CONFIG.api_key) {
+        apiKey = AISP_CONFIG.api_key;
+        localStorage.setItem('aisp_api_key', apiKey);
+    }
+}
+
 async function ensureKey() {
+    initApiKey();
     if (!apiKey) {
-        apiKey = prompt('Enter API Key (saved in localStorage):') || '';
+        apiKey = prompt('Enter API Key (from ~/.ai-superpower/config.toml, saved in localStorage):') || '';
         if (apiKey) localStorage.setItem('aisp_api_key', apiKey);
     }
-    if (!apiKey) alert('No API Key — set localStorage.aisp_api_key or reload and enter key');
+    if (!apiKey) throw new Error('No API Key — check Settings or ~/.ai-superpower/config.toml');
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
@@ -34,34 +43,123 @@ async function api(method, path, body) {
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
-async function loadDashboard() {
-    try {
-        const [proj, prop, aud] = await Promise.all([
-            api('GET', '/projects?page_size=1'),
-            api('GET', '/proposals?page_size=1'),
-            api('GET', '/audit?page_size=1'),
-        ]);
-        document.getElementById('project-count').textContent = proj.total;
-        document.getElementById('proposal-count').textContent = prop.total;
-        document.getElementById('audit-count').textContent = aud.total;
+let _trendChart = null;
+let _statusChart = null;
 
-        // Recent audit entries
-        const audData = await api('GET', '/audit?page_size=5');
+const CHART_COLORS = {
+    projects: '#f472b6',
+    proposals: '#60a5fa',
+    status: ['#f472b6', '#60a5fa', '#4ade80', '#c084fc', '#fbbf24', '#f87171', '#94a3b8', '#fb923c'],
+};
+
+function renderRecentActivity(items) {
+    const el = document.getElementById('recent-activity');
+    if (!el) return;
+    if (!items.length) { el.textContent = 'No activity yet.'; return; }
+    el.innerHTML = items.map(e => `
+        <div class="activity-item">
+            <span class="op">${e.op}</span>
+            <span class="entity">${e.entity}:${e.id}</span>
+            ${e.field ? `<span class="field"> [${e.field}]</span>` : ''}
+            ${e.old !== null ? `<span class="old">${e.old}</span>` : ''}
+            ${e.new !== null ? `→ <span class="new">${e.new}</span>` : ''}
+            <span style="color:#64748b;margin-left:0.5rem;font-size:0.75rem">${e.actor || ''}</span>
+        </div>
+    `).join('');
+}
+
+function renderTrendChart(trends) {
+    const canvas = document.getElementById('trend-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const labels = trends.projects_by_date.map(d => d.date.slice(5));
+    if (_trendChart) _trendChart.destroy();
+    _trendChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: '项目',
+                    data: trends.projects_by_date.map(d => d.count),
+                    borderColor: CHART_COLORS.projects,
+                    backgroundColor: CHART_COLORS.projects + '33',
+                    tension: 0.3,
+                    fill: true,
+                },
+                {
+                    label: '提案',
+                    data: trends.proposals_by_date.map(d => d.count),
+                    borderColor: CHART_COLORS.proposals,
+                    backgroundColor: CHART_COLORS.proposals + '33',
+                    tension: 0.3,
+                    fill: true,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#94a3b8' } } },
+            scales: {
+                x: { ticks: { color: '#64748b', maxRotation: 45 }, grid: { color: '#2d3348' } },
+                y: { beginAtZero: true, ticks: { color: '#64748b', stepSize: 1 }, grid: { color: '#2d3348' } },
+            },
+        },
+    });
+}
+
+function renderStatusChart(byStatus) {
+    const canvas = document.getElementById('status-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const labels = Object.keys(byStatus);
+    const values = Object.values(byStatus);
+    if (_statusChart) _statusChart.destroy();
+    if (!labels.length) {
+        _statusChart = null;
+        return;
+    }
+    _statusChart = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data: values,
+                backgroundColor: CHART_COLORS.status.slice(0, labels.length),
+                borderColor: '#1a1d27',
+                borderWidth: 2,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right', labels: { color: '#94a3b8', boxWidth: 12 } } },
+        },
+    });
+}
+
+async function loadDashboard() {
+    const daysEl = document.getElementById('trend-days');
+    const days = daysEl ? daysEl.value : 30;
+    const errBanner = document.getElementById('dashboard-error');
+    try {
+        const stats = await api('GET', `/stats?days=${days}`);
+        if (errBanner) errBanner.classList.add('hidden');
+        document.getElementById('project-count').textContent = stats.totals.projects;
+        document.getElementById('proposal-count').textContent = stats.totals.proposals;
+        document.getElementById('today-project-count').textContent = stats.today.projects;
+        document.getElementById('today-proposal-count').textContent = stats.today.proposals;
+        document.getElementById('audit-count').textContent = stats.totals.audit_entries;
+        renderTrendChart(stats.trends);
+        renderStatusChart(stats.by_status);
+        renderRecentActivity(stats.recent_activity || []);
+    } catch (e) {
+        if (errBanner) {
+            errBanner.textContent = '加载失败: ' + e.message + ' — 请到 Settings 查看 API Key，或执行: curl -H "X-API-Key: <key>" ...';
+            errBanner.classList.remove('hidden');
+        }
         const el = document.getElementById('recent-activity');
-        if (!audData.items.length) { el.textContent = 'No activity yet.'; return; }
-        el.innerHTML = audData.items.reverse().map(e => `
-            <div class="activity-item">
-                <span class="op">${e.op}</span>
-                <span class="entity">${e.entity}:${e.id}</span>
-                ${e.field ? `<span class="field"> [${e.field}]</span>` : ''}
-                ${e.old !== null ? `<span class="old">${e.old}</span>` : ''}
-                ${e.new !== null ? `→ <span class="new">${e.new}</span>` : ''}
-                <span style="color:#64748b;margin-left:0.5rem;font-size:0.75rem">${e.actor}</span>
-            </div>
-        `).join('');
-    } catch (e) { document.getElementById('recent-activity').textContent = 'Error: ' + e.message; }
-    // Load sync status too
-    loadSyncStatus();
+        if (el) el.textContent = 'Error: ' + e.message;
+    }
 }
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -243,17 +341,16 @@ async function loadAudit(page = 1) {
         const el = document.getElementById('audit-list');
         if (!data.items.length) { el.innerHTML = '<p>No audit entries.</p>'; }
         else {
-            el.innerHTML = `<table><thead><tr><th>Time</th><th>Op</th><th>Entity</th><th>ID</th><th>Field</th><th>Old</th><th>New</th><th>Actor</th><th>Action</th></tr></thead><tbody>
+            el.innerHTML = `<table><thead><tr><th>Time</th><th>Op</th><th>Entity</th><th>ID</th><th>Field</th><th>Old</th><th>New</th><th>Actor</th></tr></thead><tbody>
                 ${data.items.map(e => `<tr>
                     <td>${e.ts ? e.ts.slice(0,19) : '-'}</td>
                     <td><span class="op">${e.op}</span></td>
                     <td>${e.entity}</td>
-                    <td><code>${e.id}</code></td>
+                    <td>${e.id}</td>
                     <td>${e.field || '-'}</td>
                     <td style="color:#f87171;text-decoration:line-through">${e.old ?? '-'}</td>
                     <td style="color:#4ade80">${e.new ?? '-'}</td>
                     <td><code>${e.actor || '-'}</code></td>
-                    <td><button class="btn-small" onclick="undoEntry('${e.entity}', '${e.id}')">Undo</button></td>
                 </tr>`).join('')}
             </tbody></table>`;
         }
@@ -261,86 +358,20 @@ async function loadAudit(page = 1) {
     } catch (e) { document.getElementById('audit-list').textContent = 'Error: ' + e.message; }
 }
 
-async function undoEntry(entity, id) {
-    if (!confirm(`Undo last operation on ${entity}: ${id}?`)) return;
-    try {
-        const data = await api('POST', '/replay/undo', { entity, id });
-        if (data.success) {
-            alert(`Undone: ${data.message}`);
-            loadAudit(currentPage.audit || 1);
-        } else if (data.warning) {
-            alert(`Warning: ${data.message}`);
-        } else {
-            alert(`Failed: ${data.message}`);
-        }
-    } catch (e) { alert('Error: ' + e.message); }
-}
-
 // ─── Settings ────────────────────────────────────────────────────────────────
 
 function showApiKey() {
-    document.getElementById('api-key-display').textContent = apiKey || 'not set';
+    initApiKey();
+    document.getElementById('api-key-display').textContent = apiKey || AISP_CONFIG.api_key || 'not set';
 }
 
 async function runBackup() {
     const out = document.getElementById('backup-output');
     out.textContent = 'Running backup...';
     try {
+        // No backup API yet — just show config
         out.textContent = 'Backup: configure in config.toml [backup] section.';
     } catch (e) { out.textContent = 'Error: ' + e.message; }
-}
-
-// ─── Sync Config (Settings) ─────────────────────────────────────────────────
-
-async function loadSyncConfig() {
-    const out = document.getElementById('sync-config-output');
-    try {
-        const cfg = await api('GET', '/sync/config');
-        document.getElementById('sync-target-repo').value = cfg.sync_target_repo || '';
-        document.getElementById('sync-enabled').checked = cfg.sync_enabled;
-    } catch (e) { if (out) out.textContent = 'Error: ' + e.message; }
-}
-
-async function saveSyncConfig() {
-    const out = document.getElementById('sync-config-output');
-    out.textContent = 'Saving...';
-    try {
-        const body = {
-            sync_target_repo: document.getElementById('sync-target-repo').value,
-            sync_enabled: document.getElementById('sync-enabled').checked,
-        };
-        await api('POST', '/sync/config', body);
-        out.textContent = 'Sync config saved.';
-    } catch (e) { out.textContent = 'Error: ' + e.message; }
-}
-
-// ─── Sync Status / Export (Dashboard) ───────────────────────────────────────
-
-async function loadSyncStatus() {
-    try {
-        const cfg = await api('GET', '/sync/config');
-        document.getElementById('sync-target-repo-display').textContent = cfg.sync_target_repo || '—';
-        document.getElementById('sync-enabled-display').textContent = cfg.sync_enabled ? 'Yes' : 'No';
-        document.getElementById('sync-enabled-toggle').checked = cfg.sync_enabled;
-        document.getElementById('sync-last-run-display').textContent = '—';
-    } catch (e) { /* silently fail for dashboard */ }
-}
-
-async function triggerSyncExport() {
-    const out = document.getElementById('sync-output');
-    out.textContent = 'Triggering sync export...';
-    try {
-        const r = await api('POST', '/sync/export');
-        out.textContent = JSON.stringify(r);
-    } catch (e) { out.textContent = 'Error: ' + e.message; }
-}
-
-async function toggleSyncEnabled() {
-    const enabled = document.getElementById('sync-enabled-toggle').checked;
-    try {
-        await api('POST', '/sync/config', { sync_enabled: enabled });
-        document.getElementById('sync-enabled-display').textContent = enabled ? 'Yes' : 'No';
-    } catch (e) { /* silent fail */ }
 }
 
 // ─── Modal ──────────────────────────────────────────────────────────────────

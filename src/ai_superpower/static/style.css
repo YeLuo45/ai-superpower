@@ -7,6 +7,16 @@ main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
 h1 { margin-bottom: 1.5rem; color: #f472b6; }
 h2 { margin: 1.5rem 0 0.75rem; color: #e2e8f0; }
 .stats { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+.stats-dashboard { flex-wrap: wrap; }
+.stats-dashboard .stat-card { min-width: 140px; }
+.stat-card-today .stat-value { color: #4ade80; }
+.charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+.chart-card { min-height: 280px; }
+.chart-card canvas { max-height: 220px; }
+@media (max-width: 768px) {
+    .stats-dashboard { flex-direction: column; }
+    .charts-grid { grid-template-columns: 1fr; }
+}
 .stat-card { background: #1a1d27; border: 1px solid #2d3348; border-radius: 8px; padding: 1.5rem 2rem; flex: 1; }
 .stat-value { font-size: 2rem; font-weight: 700; color: #f472b6; }
 .stat-label { color: #94a3b8; margin-top: 0.25rem; }
@@ -29,7 +39,9 @@ tr:hover td { background: #1a1d27; }
 .card { background: #1a1d27; border: 1px solid #2d3348; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
 .card h3 { color: #f472b6; margin-bottom: 1rem; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.hidden { display: none !important; }
 .modal.hidden { display: none; }
+.dashboard-error { background: #4a1f1a; border: 1px solid #f87171; color: #fca5a5; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.875rem; }
 .modal-content { background: #1a1d27; border: 1px solid #2d3348; border-radius: 12px; padding: 2rem; width: 480px; max-width: 95vw; position: relative; }
 .close { position: absolute; right: 1rem; top: 1rem; font-size: 1.5rem; cursor: pointer; color: #94a3b8; }
 .close:hover { color: #f472b6; }

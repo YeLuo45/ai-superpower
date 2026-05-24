@@ -8,6 +8,7 @@
 </head>
 <body>
     <nav>
+        <a href="/">Dashboard</a>
         <a href="/web/projects">Projects</a>
         <a href="/web/proposals">Proposals</a>
         <a href="/web/audit">Audit</a>
@@ -18,32 +19,16 @@
         <div class="card">
             <h3>API Configuration</h3>
             <p>API Key: <code id="api-key-display">••••••••</code> <button onclick="showApiKey()">Show</button></p>
-            <p>Socket: <code>/tmp/ai-superpower.sock</code></p>
-            <p>Data: <code>/home/hermes/ai-superpower/db</code></p>
+            <p>Socket: <code>{{ socket_path }}</code></p>
+            <p>Data: <code>{{ data_dir }}</code></p>
         </div>
         <div class="card">
             <h3>Backup</h3>
             <button onclick="runBackup()">Run Backup Now</button>
             <pre id="backup-output"></pre>
         </div>
-        <div class="card">
-            <h3>Sync Configuration</h3>
-            <div class="sync-field">
-                <label for="sync-target-repo">Target Repository</label>
-                <input type="text" id="sync-target-repo" placeholder="https://github.com/YeLuo45/prj-proposals-manager" style="min-width: 300px;">
-            </div>
-            <div class="sync-field">
-                <label for="sync-enabled">
-                    <input type="checkbox" id="sync-enabled"> Enable Auto-Sync
-                </label>
-            </div>
-            <button onclick="saveSyncConfig()">Save Sync Config</button>
-            <pre id="sync-config-output"></pre>
-        </div>
     </main>
+    <script>window.AISP_CONFIG = {{ {"api_key": api_key}|tojson }};</script>
     <script src="/static/app.js"></script>
-    <script>
-        loadSyncConfig();
-    </script>
 </body>
 </html>

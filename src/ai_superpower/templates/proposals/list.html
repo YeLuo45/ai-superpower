@@ -8,6 +8,7 @@
 </head>
 <body>
     <nav>
+        <a href="/">Dashboard</a>
         <a href="/web/projects">Projects</a>
         <a href="/web/proposals" class="active">Proposals</a>
         <a href="/web/audit">Audit</a>
@@ -66,6 +67,7 @@
         </div>
     </div>
 
+    <script>window.AISP_CONFIG = {{ {"api_key": api_key}|tojson }};</script>
     <script src="/static/app.js"></script>
     <script>
         loadProposals();
