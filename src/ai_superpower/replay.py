@@ -41,14 +41,21 @@ class Replay:
         for entry in entries:
             self._apply_entry(entry)
 
-    def undo_last(self, entity_id: str):
-        """Undo the last operation on a given entity."""
-        path = self.config.audit_log
-        if not Path(path).exists():
-            print(f"Audit log not found: {path}")
-            return
+    def undo_last(self, entity_id: str, entity: Optional[str] = None) -> dict:
+        """Undo the last operation on a given entity.
 
-        # Find last entry for this entity
+        Args:
+            entity_id: The ID of the entity to undo.
+            entity: Optional entity type filter ("project" or "proposal").
+
+        Returns a structured dict:
+            {"found": bool, "entry": dict|None, "message": str, "success": bool, "warning": bool}
+        """
+        path = self.storage.config.audit_log
+        if not Path(path).exists():
+            return {"found": False, "entry": None, "message": f"Audit log not found: {path}", "success": False, "warning": False}
+
+        # Find last entry for this entity (optionally filtered by entity type)
         entry = None
         with open(path, "r", encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
@@ -56,18 +63,48 @@ class Replay:
             try:
                 e = json.loads(line)
                 if e.get("id") == entity_id:
+                    # If entity filter provided, skip entries that don't match
+                    if entity and e.get("entity") != entity:
+                        continue
                     entry = e
                     break
             except json.JSONDecodeError:
                 continue
 
         if not entry:
-            print(f"No entry found for entity: {entity_id}")
-            return
+            filter_note = f" (entity={entity})" if entity else ""
+            return {"found": False, "entry": None, "message": f"No entry found for {entity_id}{filter_note}", "success": False, "warning": False}
 
-        print(f"Undoing: {entry['op']} on {entry['entity']}:{entry['id']} field={entry['field']}")
-        if not self.dry_run:
-            self._apply_reverse(entry)
+        op = entry.get("op", "")
+        is_delete_undo = op == "DELETE"
+
+        if is_delete_undo:
+            return {
+                "found": True,
+                "entry": entry,
+                "message": f"[SKIP] Cannot undo DELETE for {entry.get('entity')}:{entry.get('id')} — data lost",
+                "success": False,
+                "warning": True,
+            }
+
+        if self.dry_run:
+            return {
+                "found": True,
+                "entry": entry,
+                "message": f"[DRY] Would undo: {op} on {entry.get('entity')}:{entry.get('id')} field={entry.get('field')}",
+                "success": True,
+                "warning": False,
+            }
+
+        # Actually apply the reverse
+        self._apply_reverse(entry)
+        return {
+            "found": True,
+            "entry": entry,
+            "message": f"Undone: {op} on {entry.get('entity')}:{entry.get('id')}",
+            "success": True,
+            "warning": False,
+        }
 
     def _load_entries(
         self,

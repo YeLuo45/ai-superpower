@@ -243,21 +243,37 @@ async function loadAudit(page = 1) {
         const el = document.getElementById('audit-list');
         if (!data.items.length) { el.innerHTML = '<p>No audit entries.</p>'; }
         else {
-            el.innerHTML = `<table><thead><tr><th>Time</th><th>Op</th><th>Entity</th><th>ID</th><th>Field</th><th>Old</th><th>New</th><th>Actor</th></tr></thead><tbody>
+            el.innerHTML = `<table><thead><tr><th>Time</th><th>Op</th><th>Entity</th><th>ID</th><th>Field</th><th>Old</th><th>New</th><th>Actor</th><th>Action</th></tr></thead><tbody>
                 ${data.items.map(e => `<tr>
                     <td>${e.ts ? e.ts.slice(0,19) : '-'}</td>
                     <td><span class="op">${e.op}</span></td>
                     <td>${e.entity}</td>
-                    <td>${e.id}</td>
+                    <td><code>${e.id}</code></td>
                     <td>${e.field || '-'}</td>
                     <td style="color:#f87171;text-decoration:line-through">${e.old ?? '-'}</td>
                     <td style="color:#4ade80">${e.new ?? '-'}</td>
                     <td><code>${e.actor || '-'}</code></td>
+                    <td><button class="btn-small" onclick="undoEntry('${e.entity}', '${e.id}')">Undo</button></td>
                 </tr>`).join('')}
             </tbody></table>`;
         }
         renderPagination('pagination', page, data.total, 50, loadAudit);
     } catch (e) { document.getElementById('audit-list').textContent = 'Error: ' + e.message; }
+}
+
+async function undoEntry(entity, id) {
+    if (!confirm(`Undo last operation on ${entity}: ${id}?`)) return;
+    try {
+        const data = await api('POST', '/replay/undo', { entity, id });
+        if (data.success) {
+            alert(`Undone: ${data.message}`);
+            loadAudit(currentPage.audit || 1);
+        } else if (data.warning) {
+            alert(`Warning: ${data.message}`);
+        } else {
+            alert(`Failed: ${data.message}`);
+        }
+    } catch (e) { alert('Error: ' + e.message); }
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────

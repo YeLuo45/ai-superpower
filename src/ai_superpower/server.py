@@ -479,6 +479,43 @@ def validate(data: ValidatePayload, _ak: str = Header(..., alias="X-API-Key")):
 
 # ─── Audit ───────────────────────────────────────────────────────────────────
 
+class UndoRequest(BaseModel):
+    entity: str  # "project" or "proposal"
+    id: str
+
+
+class UndoResponse(BaseModel):
+    success: bool
+    message: str
+    entry: dict
+    warning: bool = False
+
+
+@app.post("/api/replay/undo", response_model=UndoResponse)
+def undo_operation(body: UndoRequest, _ak: str = Header(..., alias="X-API-Key")):
+    """Undo the last operation on an entity.
+
+    Uses Replay.undo_last() programmatically (not CLI) to reverse the last
+    operation recorded in the audit log for the given entity.
+    """
+    from ai_superpower.replay import Replay
+
+    s = get_storage()
+    # Replay needs to use the same storage as the server
+    replay = Replay(dry_run=False)
+    # Inject the server's storage so undo operations use the same data
+    replay.storage = s
+
+    result = replay.undo_last(body.id, entity=body.entity)
+
+    return UndoResponse(
+        success=result.get("success", False),
+        message=result.get("message", ""),
+        entry=result.get("entry") or {},
+        warning=result.get("warning", False),
+    )
+
+
 @app.get("/api/stats", response_model=StatsResponse)
 def get_stats(
     days: int = Query(30, ge=7, le=90, description="Trend window in days"),
