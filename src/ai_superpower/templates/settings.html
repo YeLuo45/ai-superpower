@@ -26,7 +26,24 @@
             <button onclick="runBackup()">Run Backup Now</button>
             <pre id="backup-output"></pre>
         </div>
+        <div class="card">
+            <h3>Sync Configuration</h3>
+            <div class="sync-field">
+                <label for="sync-target-repo">Target Repository</label>
+                <input type="text" id="sync-target-repo" placeholder="https://github.com/YeLuo45/prj-proposals-manager" style="min-width: 300px;">
+            </div>
+            <div class="sync-field">
+                <label for="sync-enabled">
+                    <input type="checkbox" id="sync-enabled"> Enable Auto-Sync
+                </label>
+            </div>
+            <button onclick="saveSyncConfig()">Save Sync Config</button>
+            <pre id="sync-config-output"></pre>
+        </div>
     </main>
     <script src="/static/app.js"></script>
+    <script>
+        loadSyncConfig();
+    </script>
 </body>
 </html>

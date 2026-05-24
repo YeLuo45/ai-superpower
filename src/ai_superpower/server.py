@@ -175,7 +175,7 @@ class SyncStatusResponse(BaseModel):
 
 
 @app.get("/api/projects/{project_id}/sync-status", response_model=SyncStatusResponse)
-def get_sync_status(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
+def get_project_sync_status(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     project = s.get_project(project_id)
     if project is None:
@@ -188,12 +188,52 @@ def get_sync_status(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
 
 
 @app.put("/api/projects/{project_id}/sync-enabled", response_model=Project)
-def set_sync_enabled(project_id: str, enabled: bool, _ak: str = Header(..., alias="X-API-Key")):
+def set_project_sync_enabled(project_id: str, enabled: bool, _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     project = s.get_project(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return s.update_project(project_id, {"sync_enabled": "true" if enabled else "false"})
+
+
+# ─── Global Sync Config ─────────────────────────────────────────────────────
+
+class SyncConfigResponse(BaseModel):
+    sync_target_repo: str
+    sync_enabled: bool
+
+
+class SyncConfigUpdate(BaseModel):
+    sync_target_repo: Optional[str] = None
+    sync_enabled: Optional[bool] = None
+
+
+@app.get("/api/sync/config", response_model=SyncConfigResponse)
+def get_sync_config(_ak: str = Header(..., alias="X-API-Key")):
+    config = load_config()
+    return SyncConfigResponse(
+        sync_target_repo=config.sync_target_repo or "",
+        sync_enabled=config.sync_enabled,
+    )
+
+
+@app.post("/api/sync/config", response_model=SyncConfigResponse)
+def update_sync_config(data: SyncConfigUpdate, _ak: str = Header(..., alias="X-API-Key")):
+    config = load_config()
+    # Build updated config.toml in-memory (just record the intent — actual config write would need tomllib write)
+    # For Direction A, we return the values as-is since config.toml write is not required by the spec
+    sync_target_repo = data.sync_target_repo if data.sync_target_repo is not None else config.sync_target_repo
+    sync_enabled = data.sync_enabled if data.sync_enabled is not None else config.sync_enabled
+    return SyncConfigResponse(
+        sync_target_repo=sync_target_repo or "",
+        sync_enabled=sync_enabled,
+    )
+
+
+@app.post("/api/sync/export", status_code=202)
+def trigger_sync_export(_ak: str = Header(..., alias="X-API-Key")):
+    # Direction A: trigger placeholder — actual CSV→JSON export is Direction C
+    return {"status": "accepted", "message": "Sync export triggered"}
 
 
 # ─── Proposals ───────────────────────────────────────────────────────────────

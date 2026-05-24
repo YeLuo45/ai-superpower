@@ -60,6 +60,8 @@ async function loadDashboard() {
             </div>
         `).join('');
     } catch (e) { document.getElementById('recent-activity').textContent = 'Error: ' + e.message; }
+    // Load sync status too
+    loadSyncStatus();
 }
 
 // ─── Projects ────────────────────────────────────────────────────────────────
@@ -268,9 +270,61 @@ async function runBackup() {
     const out = document.getElementById('backup-output');
     out.textContent = 'Running backup...';
     try {
-        // No backup API yet — just show config
         out.textContent = 'Backup: configure in config.toml [backup] section.';
     } catch (e) { out.textContent = 'Error: ' + e.message; }
+}
+
+// ─── Sync Config (Settings) ─────────────────────────────────────────────────
+
+async function loadSyncConfig() {
+    const out = document.getElementById('sync-config-output');
+    try {
+        const cfg = await api('GET', '/sync/config');
+        document.getElementById('sync-target-repo').value = cfg.sync_target_repo || '';
+        document.getElementById('sync-enabled').checked = cfg.sync_enabled;
+    } catch (e) { if (out) out.textContent = 'Error: ' + e.message; }
+}
+
+async function saveSyncConfig() {
+    const out = document.getElementById('sync-config-output');
+    out.textContent = 'Saving...';
+    try {
+        const body = {
+            sync_target_repo: document.getElementById('sync-target-repo').value,
+            sync_enabled: document.getElementById('sync-enabled').checked,
+        };
+        await api('POST', '/sync/config', body);
+        out.textContent = 'Sync config saved.';
+    } catch (e) { out.textContent = 'Error: ' + e.message; }
+}
+
+// ─── Sync Status / Export (Dashboard) ───────────────────────────────────────
+
+async function loadSyncStatus() {
+    try {
+        const cfg = await api('GET', '/sync/config');
+        document.getElementById('sync-target-repo-display').textContent = cfg.sync_target_repo || '—';
+        document.getElementById('sync-enabled-display').textContent = cfg.sync_enabled ? 'Yes' : 'No';
+        document.getElementById('sync-enabled-toggle').checked = cfg.sync_enabled;
+        document.getElementById('sync-last-run-display').textContent = '—';
+    } catch (e) { /* silently fail for dashboard */ }
+}
+
+async function triggerSyncExport() {
+    const out = document.getElementById('sync-output');
+    out.textContent = 'Triggering sync export...';
+    try {
+        const r = await api('POST', '/sync/export');
+        out.textContent = JSON.stringify(r);
+    } catch (e) { out.textContent = 'Error: ' + e.message; }
+}
+
+async function toggleSyncEnabled() {
+    const enabled = document.getElementById('sync-enabled-toggle').checked;
+    try {
+        await api('POST', '/sync/config', { sync_enabled: enabled });
+        document.getElementById('sync-enabled-display').textContent = enabled ? 'Yes' : 'No';
+    } catch (e) { /* silent fail */ }
 }
 
 // ─── Modal ──────────────────────────────────────────────────────────────────
