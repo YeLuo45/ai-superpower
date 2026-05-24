@@ -117,6 +117,12 @@ curl -s "http://localhost:8100/api/projects" \
 # 统计信息
 curl -s "http://localhost:8100/api/stats?days=7" \
   -H "X-API-Key: $DEV_KEY"
+
+# Undo 操作（V4 新增）
+curl -s -X POST "http://localhost:8100/api/replay/undo" \
+  -H "X-API-Key: $DEV_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"entity": "proposal", "id": "P-20260526-001"}'
 ```
 
 集成测试可指定基址：
@@ -171,11 +177,35 @@ pytest tests/ -v
 bash ~/ai-superpower/scripts/stop-dev.sh
 bash ~/ai-superpower/scripts/run-dev.sh
 
-# 5. 提交到 = 在 dev worktree 提交，再合并到 master
+# 5. 提交 — 在 dev worktree 提交，再合并到 master
 git add -p && git commit -m "feat: ..."
 # 回到生产目录合并（示例）
 cd ~/ai-superpower && git merge dev-env
 ```
+
+---
+
+### 4. Undo 操作（V4 新增）
+
+```bash
+DEV_KEY="$(grep '^key' ~/.aisp-dev-home/.ai-superpower/config.toml | cut -d'"' -f2)"
+
+# Undo API（Web UI 通过 /web/audit 页面按钮触发）
+curl -X POST "http://localhost:8100/api/replay/undo" \
+  -H "X-API-Key: $DEV_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"entity": "proposal", "id": "P-20260526-001"}'
+
+# CLI 方式（等效）
+export AISP_DEV_HOME=/home/hermes/.aisp-dev-home
+HOME=$AISP_DEV_HOME $AISP_CLI replay --undo P-20260526-001 --dry-run
+```
+
+**V4 功能：**
+- Web UI `/web/audit` 每条记录增加 Undo 按钮，点击触发 POST `/api/replay/undo`
+- 支持 entity 类型：`project`、`proposal`
+- dry-run 默认开启（预览变更，不实际写入）
+- DELETE 操作 undo 返回警告但不阻止
 
 ---
 
