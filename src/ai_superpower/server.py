@@ -52,6 +52,8 @@ class StatsResponse(BaseModel):
 
 app = FastAPI(title="ai-superpower", version="0.1.0")
 _storage: Optional[CSVStorage] = None
+_export_status: str = "idle"
+_export_last_run: str = ""
 
 # Static / templates (set up after startup)
 _templates: Optional[Jinja2Templates] = None
@@ -232,8 +234,68 @@ def update_sync_config(data: SyncConfigUpdate, _ak: str = Header(..., alias="X-A
 
 @app.post("/api/sync/export", status_code=202)
 def trigger_sync_export(_ak: str = Header(..., alias="X-API-Key")):
-    # Direction A: trigger placeholder — actual CSV→JSON export is Direction C
-    return {"status": "accepted", "message": "Sync export triggered"}
+    """Trigger CSV → JSON export to GitHub Pages gh-pages branch.
+
+    Runs export_to_github_pages() to push proposals.json, projects.json,
+    and export_info.json to the data/ directory on gh-pages.
+    """
+    from datetime import datetime
+    from .sync_gh_pages import export_to_github_pages
+
+    global _export_status, _export_last_run
+
+    config = load_config()
+    s = get_storage()
+
+    _export_status = "running"
+
+    try:
+        result = export_to_github_pages(
+            storage=s,
+            target_repo=config.sync_target_repo or "YeLuo45/ai-superpower",
+            api_key=config.backup_api_key or config.sync_api_key or "",
+        )
+        _export_last_run = datetime.now().isoformat()
+        _export_status = "done" if result.get("success") else "error"
+        return {
+            "status": "accepted",
+            "message": result.get("message", "Export complete"),
+            "export_last_run": _export_last_run,
+            "files_created": result.get("files_created", 0),
+            "proposals_count": result.get("proposals_count", 0),
+            "projects_count": result.get("projects_count", 0),
+        }
+    except Exception as ex:
+        _export_status = "error"
+        return {
+            "status": "error",
+            "message": str(ex),
+            "export_last_run": _export_last_run,
+        }
+
+
+class ExportStatusResponse(BaseModel):
+    export_last_run: str
+    export_status: str  # "idle" | "running" | "done" | "error"
+    proposals_count: int
+    projects_count: int
+
+
+@app.get("/api/sync/export-status", response_model=ExportStatusResponse)
+def get_export_status(_ak: str = Header(..., alias="X-API-Key")):
+    """Return current export status and last run timestamp."""
+    s = get_storage()
+
+    # Count current items
+    proposals, total_p = s.list_proposals(page=1, page_size=1)
+    projects, total_proj = s.list_projects(page=1, page_size=1)
+
+    return ExportStatusResponse(
+        export_last_run=_export_last_run,
+        export_status=_export_status,
+        proposals_count=total_p,
+        projects_count=total_proj,
+    )
 
 
 # ─── Sync Push & Status (Direction B) ────────────────────────────────────────
@@ -254,8 +316,6 @@ class GlobalSyncStatusResponse(BaseModel):
 def get_sync_status(_ak: str = Header(..., alias="X-API-Key")):
     """Return current sync configuration and last run timestamp."""
     config = load_config()
-    # sync_last_run is stored per-project in CSV, but we also track globally
-    # For simplicity, we return the most recent from storage's audit log or config
     sync_last_run = getattr(config, "sync_last_run", "")
     return GlobalSyncStatusResponse(
         sync_enabled=config.sync_enabled,
