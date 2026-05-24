@@ -52,7 +52,7 @@ STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 # ─── CSV Field Names ─────────────────────────────────────────────────────────
 
-PROJECTS_CSV_HEADERS = ["id", "name", "proposal_count", "git_repo", "local_path", "description", "last_update", "create_at", "prj_url"]
+PROJECTS_CSV_HEADERS = ["id", "name", "proposal_count", "git_repo", "local_path", "description", "last_update", "create_at", "prj_url", "sync_enabled", "sync_last_run"]
 PROPOSALS_CSV_HEADERS = [
     "id", "title", "owner", "status", "project_id", "project_name", "stage",
     "prd_path", "tech_solution_path", "project_path", "git_repo", "deployment_url",
@@ -77,6 +77,8 @@ class ProjectUpdate(BaseModel):
     local_path: Optional[str] = None
     description: Optional[str] = None
     prj_url: Optional[str] = None
+    sync_enabled: Optional[str] = None
+    sync_last_run: Optional[str] = None
 
 
 class Project(BaseModel):
@@ -89,6 +91,8 @@ class Project(BaseModel):
     last_update: str = ""
     create_at: str = ""
     prj_url: str = ""
+    sync_enabled: str = "false"
+    sync_last_run: str = ""
 
 
 # ─── Proposal Models ─────────────────────────────────────────────────────────
@@ -185,3 +189,13 @@ class Proposal(BaseModel):
     target: str = ""
     game_type: str = ""
     notes: str = ""
+
+
+# ─── Pagination ──────────────────────────────────────────────────────────────
+
+class PageResponse(BaseModel):
+    items: list
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

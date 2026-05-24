@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Response, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -38,6 +38,14 @@ class PageResponse(BaseModel):
 class ValidateResponse(BaseModel):
     valid: bool
     errors: list[str]
+
+
+class StatsResponse(BaseModel):
+    totals: dict
+    today: dict
+    trends: dict
+    by_status: dict
+    recent_activity: list
 
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
@@ -158,6 +166,36 @@ def delete_project(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
     return Response(status_code=204)
 
 
+# ─── Project Sync Status ─────────────────────────────────────────────────────
+
+class SyncStatusResponse(BaseModel):
+    project_id: str
+    sync_enabled: bool
+    sync_last_run: str = ""
+
+
+@app.get("/api/projects/{project_id}/sync-status", response_model=SyncStatusResponse)
+def get_sync_status(project_id: str, _ak: str = Header(..., alias="X-API-Key")):
+    s = get_storage()
+    project = s.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return SyncStatusResponse(
+        project_id=project_id,
+        sync_enabled=project.sync_enabled == "true",
+        sync_last_run=project.sync_last_run,
+    )
+
+
+@app.put("/api/projects/{project_id}/sync-enabled", response_model=Project)
+def set_sync_enabled(project_id: str, enabled: bool, _ak: str = Header(..., alias="X-API-Key")):
+    s = get_storage()
+    project = s.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return s.update_project(project_id, {"sync_enabled": "true" if enabled else "false"})
+
+
 # ─── Proposals ───────────────────────────────────────────────────────────────
 
 @app.post("/api/proposals", response_model=Proposal, status_code=201)
@@ -257,6 +295,15 @@ def validate(data: ValidatePayload, _ak: str = Header(..., alias="X-API-Key")):
 
 # ─── Audit ───────────────────────────────────────────────────────────────────
 
+@app.get("/api/stats", response_model=StatsResponse)
+def get_stats(
+    days: int = Query(30, ge=7, le=90, description="Trend window in days"),
+    _ak: str = Header(..., alias="X-API-Key"),
+):
+    s = get_storage()
+    return s.get_stats(days=days)
+
+
 @app.get("/api/audit", response_model=PageResponse)
 def list_audit(
     page: int = Query(1, ge=1),
@@ -273,26 +320,41 @@ def list_audit(
 
 # ─── Web UI ───────────────────────────────────────────────────────────────────
 
+def _web_ctx(request: Request) -> dict:
+    config = load_config()
+    return {
+        "request": request,
+        "api_key": config.key,
+        "socket_path": config.socket_path,
+        "data_dir": config.data_dir or str(Path(config.projects_csv).parent),
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def web_index(request: Request):
-    return _templates.TemplateResponse("index.html", {"request": request})
+    return _templates.TemplateResponse("index.html", _web_ctx(request))
+
+
+@app.get("/web", response_class=RedirectResponse)
+def web_root():
+    return RedirectResponse(url="/", status_code=302)
 
 
 @app.get("/web/projects", response_class=HTMLResponse)
 def web_projects(request: Request):
-    return _templates.TemplateResponse("projects/list.html", {"request": request})
+    return _templates.TemplateResponse("projects/list.html", _web_ctx(request))
 
 
 @app.get("/web/proposals", response_class=HTMLResponse)
 def web_proposals(request: Request):
-    return _templates.TemplateResponse("proposals/list.html", {"request": request})
+    return _templates.TemplateResponse("proposals/list.html", _web_ctx(request))
 
 
 @app.get("/web/audit", response_class=HTMLResponse)
 def web_audit(request: Request):
-    return _templates.TemplateResponse("audit.html", {"request": request})
+    return _templates.TemplateResponse("audit.html", _web_ctx(request))
 
 
 @app.get("/web/settings", response_class=HTMLResponse)
 def web_settings(request: Request):
-    return _templates.TemplateResponse("settings.html", {"request": request})
+    return _templates.TemplateResponse("settings.html", _web_ctx(request))

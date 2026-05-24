@@ -4,10 +4,14 @@ import fcntl
 import hashlib
 import json
 import os
+import re
+from collections import Counter
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Generator, Optional
+
+_ID_DATE_RE = re.compile(r"^(?:PRJ|P)-(\d{4})(\d{2})(\d{2})-\d{3}$")
 
 from .config import APIConfig, load_config
 from .models import (
@@ -369,6 +373,9 @@ class CSVStorage:
         # Sync project proposal_count
         self._sync_project_proposal_count(new_row.get("project_id", ""))
 
+        # Auto-backup trigger
+        self._auto_backup_if_needed(new_row.get("project_id", ""))
+
         return Proposal(**new_row)
 
     def update_proposal(self, proposal_id: str, updates: dict) -> Optional[Proposal]:
@@ -473,6 +480,103 @@ class CSVStorage:
                 count = sum(1 for row in reader if row.get("project_id") == project_id)
 
         self.update_project(project_id, {"proposal_count": count})
+
+    def _auto_backup_if_needed(self, project_id: str):
+        """Trigger auto-backup if threshold reached for this project."""
+        if not project_id:
+            return
+        threshold = self.config.auto_backup_threshold
+        if threshold <= 0:
+            return  # disabled
+
+        # Load counter from flag file
+        counter_file = Path(self.config.data_dir) / f".backup_counter_{project_id}"
+        try:
+            count = int(counter_file.read_text().strip())
+        except (FileNotFoundError, ValueError):
+            count = 0
+
+        count += 1
+        counter_file.write_text(str(count))
+
+        if count >= threshold:
+            # Trigger backup
+            try:
+                from .backup import BackupScheduler
+                bs = BackupScheduler(self.config)
+                result = bs.backup()
+                print(f"[AutoBackup] Project {project_id}: {result}")
+                # Reset counter
+                counter_file.write_text("0")
+            except Exception as ex:
+                print(f"[AutoBackup] Failed: {ex}")
+
+    # ─── Stats ─────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _id_to_date(entity_id: str) -> Optional[str]:
+        """Extract YYYY-MM-DD from PRJ-YYYYMMDD-NNN or P-YYYYMMDD-NNN."""
+        m = _ID_DATE_RE.match(entity_id)
+        if m:
+            return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+        return None
+
+    @staticmethod
+    def _project_created_date(row: dict) -> Optional[str]:
+        create_at = (row.get("create_at") or "").strip()
+        if create_at:
+            return create_at
+        return CSVStorage._id_to_date(row.get("id", ""))
+
+    def get_stats(self, days: int = 30) -> dict:
+        """Aggregate dashboard statistics from CSV data."""
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        with self._lock_file(self.config.projects_csv, "shared"):
+            with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
+                projects = list(csv.DictReader(f))
+
+        with self._lock_file(self.config.proposals_csv, "shared"):
+            with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
+                proposals = list(csv.DictReader(f))
+
+        project_dates = Counter(
+            d for r in projects if (d := self._project_created_date(r))
+        )
+        proposal_dates = Counter(
+            d for r in proposals if (d := self._id_to_date(r.get("id", "")))
+        )
+        by_status = Counter(r.get("status", "") for r in proposals if r.get("status"))
+
+        start = datetime.now().date() - timedelta(days=days - 1)
+        projects_by_date = []
+        proposals_by_date = []
+        for i in range(days):
+            d = (start + timedelta(days=i)).strftime("%Y-%m-%d")
+            projects_by_date.append({"date": d, "count": project_dates.get(d, 0)})
+            proposals_by_date.append({"date": d, "count": proposal_dates.get(d, 0)})
+
+        audit_entries, audit_total = self.list_audit(page=1, page_size=5)
+        recent = list(reversed(audit_entries))
+
+        return {
+            "totals": {
+                "projects": len(projects),
+                "proposals": len(proposals),
+                "audit_entries": audit_total,
+            },
+            "today": {
+                "projects": project_dates.get(today, 0),
+                "proposals": proposal_dates.get(today, 0),
+            },
+            "trends": {
+                "days": days,
+                "projects_by_date": projects_by_date,
+                "proposals_by_date": proposals_by_date,
+            },
+            "by_status": dict(by_status),
+            "recent_activity": recent,
+        }
 
     # ─── Audit ────────────────────────────────────────────────────────────────
 

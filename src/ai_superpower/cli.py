@@ -99,6 +99,20 @@ def cmd_project_delete(args):
     client.delete_project(args.id)
 
 
+def _cmd_project_sync_status(args):
+    client = APIClient()
+    result = client._do_request("GET", f"/projects/{args.id}/sync-status")
+    print(f"Project: {result['project_id']}")
+    print(f"Sync enabled: {result['sync_enabled']}")
+    print(f"Last sync: {result['sync_last_run'] or 'never'}")
+
+
+def _cmd_project_sync_enable(args, enabled: bool):
+    client = APIClient()
+    result = client._do_request("PUT", f"/projects/{args.id}/sync-enabled?enabled={enabled}")
+    print(f"Sync enabled: {result['sync_enabled']} for project {result['id']}")
+
+
 def cmd_proposal_create(args):
     data = {
         "title": args.title,
@@ -290,7 +304,7 @@ def cmd_tui(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="ai-superpower", description="ai-superpower API CLI")
+    parser = argparse.ArgumentParser(prog="aisp", description="aisp (ai-superpower) API CLI")
     subparsers = parser.add_subparsers(dest="command")
 
     # run
@@ -325,6 +339,19 @@ def main():
     p_proj_delete = proj_sub.add_parser("delete", help="Delete project")
     p_proj_delete.add_argument("id")
     p_proj_delete.set_defaults(func=cmd_project_delete)
+
+    # project sync
+    p_proj_sync_status = proj_sub.add_parser("sync-status", help="Get sync status of a project")
+    p_proj_sync_status.add_argument("id")
+    p_proj_sync_status.set_defaults(func=lambda args: _cmd_project_sync_status(args))
+
+    p_proj_sync_enable = proj_sub.add_parser("sync-enable", help="Enable sync for a project")
+    p_proj_sync_enable.add_argument("id")
+    p_proj_sync_enable.set_defaults(func=lambda args: _cmd_project_sync_enable(args, True))
+
+    p_proj_sync_disable = proj_sub.add_parser("sync-disable", help="Disable sync for a project")
+    p_proj_sync_disable.add_argument("id")
+    p_proj_sync_disable.set_defaults(func=lambda args: _cmd_project_sync_enable(args, False))
 
     # proposal
     p_prop = subparsers.add_parser("proposal", help="Proposal commands")

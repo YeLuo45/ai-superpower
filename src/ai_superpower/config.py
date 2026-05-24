@@ -30,6 +30,7 @@ class APIConfig:
     backup_remote_repo: str = ""
     backup_remote_branch: str = "backup"
     backup_api_key: str = ""
+    auto_backup_threshold: int = 5  # 0=disabled
 
     def __post_init__(self):
         if self.data_dir:
@@ -83,4 +84,5 @@ def load_config() -> APIConfig:
         backup_remote_repo=backup_section.get("remote_repo", ""),
         backup_remote_branch=backup_section.get("remote_branch", "backup"),
         backup_api_key=backup_section.get("api_key", ""),
+        auto_backup_threshold=backup_section.get("auto_backup_threshold", 5),
     )
