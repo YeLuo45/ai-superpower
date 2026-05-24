@@ -236,6 +236,90 @@ def trigger_sync_export(_ak: str = Header(..., alias="X-API-Key")):
     return {"status": "accepted", "message": "Sync export triggered"}
 
 
+# ─── Sync Push & Status (Direction B) ────────────────────────────────────────
+
+class ProjectSyncStatusResponse(BaseModel):
+    project_id: str
+    sync_enabled: bool
+    sync_last_run: str = ""
+
+
+class GlobalSyncStatusResponse(BaseModel):
+    sync_enabled: bool
+    sync_target_repo: str
+    sync_last_run: str
+
+
+@app.get("/api/sync/status", response_model=GlobalSyncStatusResponse)
+def get_sync_status(_ak: str = Header(..., alias="X-API-Key")):
+    """Return current sync configuration and last run timestamp."""
+    config = load_config()
+    # sync_last_run is stored per-project in CSV, but we also track globally
+    # For simplicity, we return the most recent from storage's audit log or config
+    sync_last_run = getattr(config, "sync_last_run", "")
+    return GlobalSyncStatusResponse(
+        sync_enabled=config.sync_enabled,
+        sync_target_repo=config.sync_target_repo or "",
+        sync_last_run=sync_last_run or "",
+    )
+
+
+class SyncPushResponse(BaseModel):
+    success: bool
+    message: str
+    pushed_count: int = 0
+    sync_last_run: str = ""
+
+
+@app.post("/api/sync/push", response_model=SyncPushResponse)
+def sync_push(_ak: str = Header(..., alias="X-API-Key")):
+    """Read proposals.csv, convert to prj-proposals-manager format, push to GitHub.
+
+    Returns count of proposals pushed and timestamp of this run.
+    """
+    from datetime import datetime
+    from .sync import csv_to_prj_proposals_json, push_proposals_to_github
+
+    config = load_config()
+    s = get_storage()
+
+    # Convert proposals.csv to JSON
+    proposals_json = csv_to_prj_proposals_json(config.proposals_csv)
+
+    # Push to GitHub if target is configured
+    pushed_count = len(proposals_json)
+    sync_last_run = datetime.now().isoformat()
+
+    if config.sync_target_repo and config.sync_api_key:
+        result = push_proposals_to_github(
+            data=proposals_json,
+            target_repo=config.sync_target_repo,
+            api_key=config.sync_api_key,
+        )
+        if not result.get("success"):
+            return SyncPushResponse(
+                success=False,
+                message=result.get("message", "Push failed"),
+                pushed_count=0,
+                sync_last_run=sync_last_run,
+            )
+        pushed_count = result.get("pushed_count", len(proposals_json))
+    elif not config.sync_target_repo:
+        return SyncPushResponse(
+            success=False,
+            message="sync_target_repo not configured",
+            pushed_count=0,
+            sync_last_run=sync_last_run,
+        )
+
+    return SyncPushResponse(
+        success=True,
+        message=f"Pushed {pushed_count} proposals to {config.sync_target_repo}",
+        pushed_count=pushed_count,
+        sync_last_run=sync_last_run,
+    )
+
+
 # ─── Proposals ───────────────────────────────────────────────────────────────
 
 @app.post("/api/proposals", response_model=Proposal, status_code=201)

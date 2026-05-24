@@ -37,6 +37,7 @@ class APIConfig:
     sync_enabled: bool = False
     sync_api_key: str = ""
     sync_interval_minutes: int = 0  # 0=disabled
+    sync_last_run: str = ""
 
     def __post_init__(self):
         if self.data_dir:
