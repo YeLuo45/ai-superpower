@@ -485,7 +485,7 @@ class CSVStorage:
         """Trigger auto-backup if threshold reached for this project."""
         if not project_id:
             return
-        threshold = self.config.auto_backup_threshold
+        threshold = getattr(self.config, "auto_backup_threshold", 0)
         if threshold <= 0:
             return  # disabled
 
