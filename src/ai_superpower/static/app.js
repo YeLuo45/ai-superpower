@@ -358,7 +358,7 @@ async function loadAudit(page = 1) {
     } catch (e) { document.getElementById('audit-list').textContent = 'Error: ' + e.message; }
 }
 
-// ─── Settings ────────────────────────────────────────────────────────────────
+// ─── Settings ──────────────────────────────────────────────────────────────────
 
 function showApiKey() {
     initApiKey();
@@ -372,6 +372,92 @@ async function runBackup() {
         // No backup API yet — just show config
         out.textContent = 'Backup: configure in config.toml [backup] section.';
     } catch (e) { out.textContent = 'Error: ' + e.message; }
+}
+
+// ─── Sync Settings ────────────────────────────────────────────────────────────
+
+async function loadSyncConfig() {
+    const out = document.getElementById('sync-output');
+    out.textContent = 'Loading...';
+    try {
+        const cfg = await api('GET', '/sync/config');
+        if (document.getElementById('sync-api-key')) {
+            document.getElementById('sync-api-key').value = '';
+        }
+        if (document.getElementById('sync-pages-repo')) {
+            document.getElementById('sync-pages-repo').value = cfg.sync_target_repo || 'YeLuo45/ai-superpower';
+        }
+        if (document.getElementById('sync-prj-repo')) {
+            const prjEl = document.getElementById('sync-prj-repo');
+            // Read from /sync/status to get prj_repo
+            try {
+                const status = await api('GET', '/sync/status');
+                prjEl.value = status.sync_prj_repo || 'YeLuo45/prj-proposals-manager';
+            } catch {
+                prjEl.value = 'YeLuo45/prj-proposals-manager';
+            }
+        }
+        // Get frequency from /sync/status
+        try {
+            const status = await api('GET', '/sync/status');
+            const freqMap = { 60: '1h', 360: '6h', 720: '12h', 1440: '1d', 0: 'off' };
+            const freqEl = document.getElementById('sync-frequency');
+            if (freqEl) {
+                freqEl.value = freqMap[status.sync_interval_minutes] || 'off';
+            }
+            if (document.getElementById('sync-last-run')) {
+                document.getElementById('sync-last-run').textContent = status.sync_last_run || '—';
+            }
+        } catch { /* ignore */ }
+        out.textContent = 'Loaded.';
+        setTimeout(() => { if (out.textContent === 'Loaded.') out.textContent = ''; }, 2000);
+    } catch (e) {
+        out.textContent = 'Error: ' + e.message;
+    }
+}
+
+async function saveSyncConfig() {
+    const out = document.getElementById('sync-output');
+    out.textContent = 'Saving...';
+    try {
+        const pagesRepo = document.getElementById('sync-pages-repo')?.value || '';
+        const prjRepo = document.getElementById('sync-prj-repo')?.value || '';
+        const freq = document.getElementById('sync-frequency')?.value || 'off';
+        const apiKeyVal = document.getElementById('sync-api-key')?.value || '';
+
+        // Save target_repo + enabled via PUT /api/sync/config
+        await api('PUT', '/sync/config', {
+            sync_target_repo: pagesRepo,
+            sync_enabled: freq !== 'off',
+        });
+
+        // Save frequency to config.toml via POST /api/sync/config (app updates in-memory)
+        await api('POST', '/sync/config', {
+            sync_frequency: freq,
+            sync_prj_repo: prjRepo,
+            sync_api_key: apiKeyVal,
+        });
+
+        out.textContent = 'Saved. Reload page to reflect changes.';
+        setTimeout(() => { if (out.textContent.startsWith('Saved.')) out.textContent = ''; }, 3000);
+    } catch (e) {
+        out.textContent = 'Error: ' + e.message;
+    }
+}
+
+async function runSyncNow() {
+    const out = document.getElementById('sync-output');
+    out.textContent = 'Syncing...';
+    try {
+        const result = await api('POST', '/sync/export', {});
+        if (result.status === 'accepted' || result.status === 'done') {
+            out.textContent = `Done. Exported ${result.proposals_count} proposals, ${result.projects_count} projects.\nFiles: ${result.files_created}\nLast run: ${result.export_last_run}`;
+        } else {
+            out.textContent = `Status: ${result.status}\n${result.message || ''}`;
+        }
+    } catch (e) {
+        out.textContent = 'Error: ' + e.message;
+    }
 }
 
 // ─── Modal ──────────────────────────────────────────────────────────────────

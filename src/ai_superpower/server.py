@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ai_superpower.config import load_config
+from ai_superpower.config import load_config, _parse_frequency
 from ai_superpower.models import (
     Proposal,
     ProposalCreate,
@@ -24,6 +24,33 @@ from ai_superpower.models import (
     VALID_ENUMS,
 )
 from ai_superpower.storage import CSVStorage
+
+# APScheduler for sync jobs
+_scheduler = None
+
+
+def _run_scheduled_sync():
+    """Background job that runs the scheduled sync export."""
+    from datetime import datetime
+    from .sync_gh_pages import export_to_github_pages
+
+    global _export_status, _export_last_run
+    try:
+        config = load_config()
+        if not config.sync_enabled or config.sync_interval_minutes <= 0:
+            return
+        if _storage is None:
+            return
+        _export_status = "running"
+        result = export_to_github_pages(
+            storage=get_storage(),
+            target_repo=config.sync_target_repo or "YeLuo45/ai-superpower",
+            api_key=config.sync_api_key or "",
+        )
+        _export_last_run = datetime.now().isoformat()
+        _export_status = "done" if result.get("success") else "error"
+    except Exception:
+        _export_status = "error"
 
 
 # ─── Response Models ───────────────────────────────────────────────────────────
@@ -61,7 +88,7 @@ _templates: Optional[Jinja2Templates] = None
 
 @app.on_event("startup")
 def startup():
-    global _storage, _templates
+    global _storage, _templates, _scheduler
     config = load_config()
     actor = hashlib.sha256(config.key.encode()).hexdigest()[:8]
     _storage = CSVStorage(config, actor=actor)
@@ -73,6 +100,22 @@ def startup():
     # Mount static files
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    # ── APScheduler: register sync job ───────────────────────────────────────────
+    if config.sync_enabled and config.sync_interval_minutes > 0:
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            _scheduler = BackgroundScheduler()
+            _scheduler.add_job(
+                _run_scheduled_sync,
+                "interval",
+                minutes=config.sync_interval_minutes,
+                id="sync_export_job",
+            )
+            _scheduler.start()
+            print(f"[Scheduler] Sync job registered: every {config.sync_interval_minutes} minutes", flush=True)
+        except Exception as e:
+            print(f"[Scheduler] Failed to start sync job: {e}", flush=True)
 
 
 def get_storage() -> CSVStorage:
@@ -202,34 +245,126 @@ def set_project_sync_enabled(project_id: str, enabled: bool, _ak: str = Header(.
 
 class SyncConfigResponse(BaseModel):
     sync_target_repo: str
+    sync_prj_repo: str
     sync_enabled: bool
+    sync_frequency: str
+    sync_interval_minutes: int
+    sync_api_key_masked: str  # masked, not actual key
 
 
 class SyncConfigUpdate(BaseModel):
     sync_target_repo: Optional[str] = None
+    sync_prj_repo: Optional[str] = None
     sync_enabled: Optional[bool] = None
+    sync_frequency: Optional[str] = None  # "1h", "6h", "off", etc.
+    sync_api_key: Optional[str] = None
+
+
+def _frequency_to_str(minutes: int) -> str:
+    """Convert interval minutes back to frequency string."""
+    if minutes >= 1440:
+        return f"{minutes // 1440}d"
+    if minutes >= 60:
+        return f"{minutes // 60}h"
+    if minutes > 0:
+        return f"{minutes}m"
+    return "off"
 
 
 @app.get("/api/sync/config", response_model=SyncConfigResponse)
 def get_sync_config(_ak: str = Header(..., alias="X-API-Key")):
     config = load_config()
+    masked = "********" if config.sync_api_key else ""
     return SyncConfigResponse(
         sync_target_repo=config.sync_target_repo or "",
+        sync_prj_repo=config.sync_prj_repo or "",
         sync_enabled=config.sync_enabled,
+        sync_frequency=_frequency_to_str(config.sync_interval_minutes),
+        sync_interval_minutes=config.sync_interval_minutes,
+        sync_api_key_masked=masked,
     )
 
 
-@app.post("/api/sync/config", response_model=SyncConfigResponse)
-def update_sync_config(data: SyncConfigUpdate, _ak: str = Header(..., alias="X-API-Key")):
+@app.put("/api/sync/config", response_model=SyncConfigResponse)
+def put_sync_config(data: SyncConfigUpdate, _ak: str = Header(..., alias="X-API-Key")):
+    """Update sync config (target_repo, prj_repo, enabled, frequency, api_key).
+    Writes updated values back to config.toml so they persist across restarts."""
+    from pathlib import Path
+    import tomllib
+
     config = load_config()
-    # Build updated config.toml in-memory (just record the intent — actual config write would need tomllib write)
-    # For Direction A, we return the values as-is since config.toml write is not required by the spec
-    sync_target_repo = data.sync_target_repo if data.sync_target_repo is not None else config.sync_target_repo
-    sync_enabled = data.sync_enabled if data.sync_enabled is not None else config.sync_enabled
+    masked = "********" if config.sync_api_key else ""
+
+    # Apply updates
+    if data.sync_target_repo is not None:
+        config.sync_target_repo = data.sync_target_repo
+    if data.sync_prj_repo is not None:
+        config.sync_prj_repo = data.sync_prj_repo
+    if data.sync_enabled is not None:
+        config.sync_enabled = data.sync_enabled
+    if data.sync_frequency is not None:
+        config.sync_interval_minutes = _parse_frequency(data.sync_frequency)
+    if data.sync_api_key is not None:
+        config.sync_api_key = data.sync_api_key
+        masked = "********" if data.sync_api_key else ""
+
+    # Persist to config.toml
+    config_path = Path.home() / ".ai-superpower" / "config.toml"
+    try:
+        with open(config_path, "rb") as f:
+            raw = tomllib.load(f)
+    except Exception:
+        raw = {}
+
+    # Ensure [sync] section
+    if "sync" not in raw:
+        raw["sync"] = {}
+    raw["sync"]["target_repo"] = config.sync_target_repo
+    raw["sync"]["prj_repo"] = config.sync_prj_repo
+    raw["sync"]["enabled"] = config.sync_enabled
+    raw["sync"]["frequency"] = _frequency_to_str(config.sync_interval_minutes)
+    if config.sync_api_key:
+        raw["sync"]["api_key"] = config.sync_api_key
+
+    # Write back
+    import io
+    buf = io.StringIO()
+    for section, keys in [("api", ["key", "socket_path", "data_dir", "allow_delete"]),
+                           ("backup", ["enabled", "frequency", "local_path", "remote_repo", "remote_branch", "api_key", "max_copies", "auto_backup_threshold"]),
+                           ("sync", ["enabled", "frequency", "target_repo", "api_key", "prj_repo"]),
+                           ("server", ["host", "port"])]:
+        if section not in raw:
+            continue
+        buf.write(f"[{section}]\n")
+        for k in keys:
+            v = raw[section].get(k)
+            if v is None:
+                continue
+            if isinstance(v, bool):
+                buf.write(f"{k} = {'true' if v else 'false'}\n")
+            elif isinstance(v, int):
+                buf.write(f"{k} = {v}\n")
+            else:
+                buf.write(f'{k} = "{v}"\n')
+        buf.write("\n")
+
+    with open(config_path, "w") as f:
+        f.write(buf.getvalue())
+
     return SyncConfigResponse(
-        sync_target_repo=sync_target_repo or "",
-        sync_enabled=sync_enabled,
+        sync_target_repo=config.sync_target_repo or "",
+        sync_prj_repo=config.sync_prj_repo or "",
+        sync_enabled=config.sync_enabled,
+        sync_frequency=_frequency_to_str(config.sync_interval_minutes),
+        sync_interval_minutes=config.sync_interval_minutes,
+        sync_api_key_masked=masked,
     )
+
+
+# Keep POST for backward compat — redirect to PUT
+@app.post("/api/sync/config", response_model=SyncConfigResponse)
+def post_sync_config(data: SyncConfigUpdate, _ak: str = Header(..., alias="X-API-Key")):
+    return put_sync_config(data, _ak)
 
 
 @app.post("/api/sync/export", status_code=202)
@@ -309,18 +444,21 @@ class ProjectSyncStatusResponse(BaseModel):
 class GlobalSyncStatusResponse(BaseModel):
     sync_enabled: bool
     sync_target_repo: str
+    sync_prj_repo: str
     sync_last_run: str
+    sync_interval_minutes: int
 
 
 @app.get("/api/sync/status", response_model=GlobalSyncStatusResponse)
 def get_sync_status(_ak: str = Header(..., alias="X-API-Key")):
     """Return current sync configuration and last run timestamp."""
     config = load_config()
-    sync_last_run = getattr(config, "sync_last_run", "")
     return GlobalSyncStatusResponse(
         sync_enabled=config.sync_enabled,
         sync_target_repo=config.sync_target_repo or "",
-        sync_last_run=sync_last_run or "",
+        sync_prj_repo=config.sync_prj_repo or "",
+        sync_last_run=config.sync_last_run or "",
+        sync_interval_minutes=config.sync_interval_minutes,
     )
 
 
@@ -543,11 +681,20 @@ def list_audit(
 
 def _web_ctx(request: Request) -> dict:
     config = load_config()
+    sync_config = {
+        "sync_target_repo": config.sync_target_repo or "",
+        "sync_prj_repo": config.sync_prj_repo or "",
+        "sync_enabled": config.sync_enabled,
+        "sync_interval_minutes": config.sync_interval_minutes,
+        "sync_frequency": _frequency_to_str(config.sync_interval_minutes),
+        "sync_last_run": config.sync_last_run or "",
+    }
     return {
         "request": request,
         "api_key": config.key,
         "socket_path": config.socket_path,
         "data_dir": config.data_dir or str(Path(config.projects_csv).parent),
+        "sync_config": sync_config,
     }
 
 

@@ -32,8 +32,9 @@ class APIConfig:
     backup_api_key: str = ""
     auto_backup_threshold: int = 5  # 0=disabled
 
-    # Sync
+    # Sync (V5)
     sync_target_repo: str = ""
+    sync_prj_repo: str = ""
     sync_enabled: bool = False
     sync_api_key: str = ""
     sync_interval_minutes: int = 0  # 0=disabled
@@ -57,6 +58,38 @@ class APIConfig:
             self.backup_local_path = str(_DEFAULT_DATA_DIR.parent / "backups")
 
 
+# ─── Frequency Parser ──────────────────────────────────────────────────────────
+
+def _parse_frequency(freq: str) -> int:
+    """Convert frequency string to minutes.
+
+    Examples: "1h" -> 60, "6h" -> 360, "1d" -> 1440, "0"/"off" -> 0
+    """
+    freq = str(freq).strip().lower()
+    if freq in ("0", "off", "disabled"):
+        return 0
+    if freq.endswith("h"):
+        try:
+            return int(freq[:-1]) * 60
+        except ValueError:
+            return 0
+    if freq.endswith("d"):
+        try:
+            return int(freq[:-1]) * 1440
+        except ValueError:
+            return 0
+    if freq.endswith("m"):
+        try:
+            return int(freq[:-1])
+        except ValueError:
+            return 0
+    # Plain number → minutes
+    try:
+        return int(freq)
+    except ValueError:
+        return 0
+
+
 def load_config() -> APIConfig:
     if not CONFIG_PATH.exists():
         raise FileNotFoundError(
@@ -73,6 +106,7 @@ def load_config() -> APIConfig:
     api_section = data.get("api", {})
     backup_section = data.get("backup", {})
     server_section = data.get("server", {})
+    sync_section = data.get("sync", {})
 
     return APIConfig(
         key=api_section.get("key", ""),
@@ -92,4 +126,9 @@ def load_config() -> APIConfig:
         backup_remote_branch=backup_section.get("remote_branch", "backup"),
         backup_api_key=backup_section.get("api_key", ""),
         auto_backup_threshold=backup_section.get("auto_backup_threshold", 5),
+        sync_target_repo=sync_section.get("target_repo", ""),
+        sync_prj_repo=sync_section.get("prj_repo", ""),
+        sync_enabled=sync_section.get("enabled", False),
+        sync_api_key=sync_section.get("api_key", ""),
+        sync_interval_minutes=_parse_frequency(sync_section.get("frequency", "0")),
     )
