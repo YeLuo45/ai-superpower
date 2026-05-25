@@ -28,43 +28,7 @@ jobs:
 
       - name: Create 404.html
         run: |
-          tee site/404.html > /dev/null << 'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Superpower Dev - Page Not Found</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    h1 { color: #333; }
-    ul { line-height: 1.8; }
-    a { color: #0066cc; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <h1>Page Not Found</h1>
-  <p>Select a page:</p>
-  <ul>
-    <li><a href="/index.html">Index</a></li>
-    <li><a href="/settings.html">Settings</a></li>
-    <li><a href="/audit.html">Audit</a></li>
-    <li><a href="/projects/list.html">Projects</a></li>
-    <li><a href="/proposals/list.html">Proposals</a></li>
-  </ul>
-  <p><a href="/">Go to Home</a></p>
-  <script>
-    var path = window.location.pathname;
-    if (path && path !== '/') {
-      fetch(path).then(function(r) {
-        if (r.ok) window.location.href = path;
-      }).catch(function() {});
-    }
-  </script>
-</body>
-</html>
-EOF
+          echo 'PCFET0NUIEhUTUw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+CiAgPG1ldGEgY2hhcnNldD0iVVRGLTgiPgogIDxtZXRhIG5hbWU9InZpZXdwb3J0IiBjb250ZW50PSJ3aWR0aD1kZXZpY2Utd2lkdGgsIGluaXRpYWwtc2NhbGU9MS4wIj4KICA8dGl0bGU+QUkgU3VwZXJwb3dlciBEZXYgLSBQYWdlIE5vdCBGb3VuZDwvdGl0bGU+CiAgPHN0eWxlPgogICAgYm9keSB7IGZvbnQtZmFtaWx5OiBBcmlhbCwgc2Fucy1zZXJpZjsgbWFyZ2luOiA0MHB4OyB9CiAgICBoMSB7IGNvbG9yOiAjMzMzOyB9CiAgICB1bCB7IGxpbmUtaGVpZ2h0OiAxLjg7IH0KICAgIGEgeyBjb2xvcjogIzAwNjZjYykgdGV4dC1kZWNvcmF0aW9uOiBub25lOyB9CiAgICBhOmhvdmVyIHsgdGV4dC1kZWNvcmF0aW9uOiB1bmRlcmxpbmU7IH0KICA8L3N0eWxlPgo8L2hlYWQ+Cjxib2R5PgogIDxoMT5QYWdlIE5vdCBGb3VuZDwvaDE+CiAgPHA+U2VsZWN0IGEgcGFnZTo8L3A+CiAgPHVsPgogICAgPGxpPjxhIGhyZWY9Ii9pbmRleC5odG1sIj5JbmRleDwvaW8+PC9saT4KICAgIDxsaT48YSBocmVmPSIvc2V0dGluZ3MuaHRtbCI+VGVtcGxlPC9hPjwvbGk+CiAgICA8bGk+PGEgaHJlZj0iL2F1ZGl0Lmh0bWwiPkF1ZGl0PC9hPjwvbGk+CiAgICA8bGk+PGEgaHJlZj0iL3Byb2plY3RzL2xpc3QuaHRtbCI+UHJvamVjdHM8L2E+PC9saT4KICAgIDxsaT48YSBocmVmPSIvcHJvcG9zYWxzL2xpc3QuaHRtbCI+UHJvcG9zYWxzPC9hPjwvbGk+CiAgPC91bD4KICA8cD48YSBocmVmPSIvIj5HbyB0byBIb21lPC9hPjwvcD4KICA8c2NyaXB0PgogICAgdmFyIHBhdGggPSB3aW5kb3cubG9jYXRpb24ucGF0aG5hbWU7CiAgICBpZiAocGF0aCAmJiBwYXRoICE9PSAiLyIpIHsKICAgICAgZmV0Y2gocGF0aCkudGhlbihmdW5jdGlvbihyKSB7CiAgICAgICAgaWYgKHIub2spIHdpbmRvdy5sb2NhdGlvbi5ocmVmID0gcGF0aDsKICAgICAgfSkuY2F0Y2goZnVuY3Rpb24oKSB7fSk7CiAgICB9CiAgPC9zY3JpcHQ+CjwvYm9keT4KPC9odG1sPg==' | base64 -d > site/404.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
