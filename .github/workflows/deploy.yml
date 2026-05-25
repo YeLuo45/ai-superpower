@@ -33,13 +33,15 @@ jobs:
 
       - name: Wait for server to be ready
         run: |
-          for i in {1..30}; do
-            if curl -s http://localhost:8100/api/health > /dev/null 2>&1; then
+          for i in $(seq 1 60); do
+            if curl -s http://localhost:8100/health > /dev/null 2>&1; then
               echo "Server is ready"
               break
             fi
-            sleep 1
+            echo "Waiting for server... attempt $i/60"
+            sleep 2
           done
+          curl -s http://localhost:8100/health
 
       - name: Trigger data export
         run: |
@@ -102,15 +104,15 @@ jobs:
             <h1>Page Not Found</h1>
             <p>Select a page:</p>
             <ul>
-              <li><a href="/ai-superpower-dev/index.html">Index</a></li>
-              <li><a href="/ai-superpower-dev/settings.html">Settings</a></li>
-              <li><a href="/ai-superpower-dev/audit.html">Audit</a></li>
-              <li><a href="/ai-superpower-dev/projects/list.html">Projects</a></li>
-              <li><a href="/ai-superpower-dev/proposals/list.html">Proposals</a></li>
+              <li><a href="/index.html">Index</a></li>
+              <li><a href="/settings.html">Settings</a></li>
+              <li><a href="/audit.html">Audit</a></li>
+              <li><a href="/projects/list.html">Projects</a></li>
+              <li><a href="/proposals/list.html">Proposals</a></li>
             </ul>
-            <p><a href="/ai-superpower-dev/">Go to Home</a></p>
+            <p><a href="/">Go to Home</a></p>
             <script>
-              var path = window.location.pathname.replace('/ai-superpower-dev', '');
+              var path = window.location.pathname;
               if (path && path !== '/') {
                 fetch(path).then(function(r) {
                   if (r.ok) window.location.href = path;
@@ -119,7 +121,7 @@ jobs:
             </script>
           </body>
           </html>
-HTMLEOF
+          HTMLEOF
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
