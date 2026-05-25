@@ -36,6 +36,8 @@ class SyncTestConfig:
         self.sync_target_repo = "YeLuo45/prj-proposals-manager"
         self.sync_enabled = True
         self.sync_api_key = "test-github-token"
+        self.sync_interval_minutes = 60
+        self.sync_prj_repo = "YeLuo45/prj-proposals-manager"
 
 
 @pytest.fixture
@@ -62,6 +64,9 @@ def sync_storage(sync_config):
         'sync_target_repo': sync_config.sync_target_repo,
         'sync_enabled': sync_config.sync_enabled,
         'sync_api_key': sync_config.sync_api_key,
+        'sync_interval_minutes': sync_config.sync_interval_minutes,
+        'sync_prj_repo': sync_config.sync_prj_repo,
+        'sync_last_run': "",
     })()
     s = CSVStorage(cfg, actor="test")
     s.create_project(name="Sync Test Project")
@@ -90,6 +95,9 @@ def sync_client(sync_storage, sync_config):
         'sync_target_repo': sync_config.sync_target_repo,
         'sync_enabled': sync_config.sync_enabled,
         'sync_api_key': sync_config.sync_api_key,
+        'sync_interval_minutes': sync_config.sync_interval_minutes,
+        'sync_prj_repo': sync_config.sync_prj_repo,
+        'sync_last_run': "",
     })()
     config_mod.load_config = lambda: test_cfg
     server_mod.load_config = lambda: test_cfg

@@ -1,0 +1,20 @@
+[api]
+key = "3fa51f51c4a7de60abcc7acd2cd44933"
+socket_path = "127.0.0.1:8100"
+data_dir = "/home/hermes/ai-superpower-dev/db"
+allow_delete = true
+
+[backup]
+enabled = false
+local_path = "/home/hermes/ai-superpower-dev/backups"
+
+[server]
+host = "0.0.0.0"
+port = 8100
+
+[sync]
+enabled = false
+frequency = "1h"
+target_repo = "YeLuo45/ai-superpower"
+api_key = ""
+prj_repo = "YeLuo45/prj-proposals-manager"

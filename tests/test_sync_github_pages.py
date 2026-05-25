@@ -42,6 +42,7 @@ class ExportTestConfig:
         self.sync_target_repo = "YeLuo45/ai-superpower"
         self.sync_enabled = True
         self.sync_api_key = "test-github-token"
+        self.sync_interval_minutes = 60
 
 
 @pytest.fixture
@@ -67,6 +68,7 @@ def export_storage(export_config):
         'sync_target_repo': export_config.sync_target_repo,
         'sync_enabled': export_config.sync_enabled,
         'sync_api_key': export_config.sync_api_key,
+        'sync_interval_minutes': export_config.sync_interval_minutes,
     })()
     s = CSVStorage(cfg, actor="test")
     s.create_project(name="Export Test Project")
@@ -95,6 +97,8 @@ def export_client(export_storage, export_config):
         'sync_target_repo': export_config.sync_target_repo,
         'sync_enabled': export_config.sync_enabled,
         'sync_api_key': export_config.sync_api_key,
+        'sync_interval_minutes': export_config.sync_interval_minutes,
+        'sync_prj_repo': "YeLuo45/prj-proposals-manager",
     })()
     config_mod.load_config = lambda: test_cfg
     server_mod.load_config = lambda: test_cfg
