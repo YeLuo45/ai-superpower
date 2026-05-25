@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - ai-superpower</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/web/projects">Projects</a>
+        <a href="/web/proposals">Proposals</a>
+        <a href="/web/audit">Audit</a>
+        <a href="/web/settings" class="active">Settings</a>
+    </nav>
+    <main>
+        <h1>Settings</h1>
+        <div class="card">
+            <h3>API Configuration</h3>
+            <p>API Key: <code id="api-key-display">••••••••</code> <button onclick="showApiKey()">Show</button></p>
+            <p>Socket: <code>{{ socket_path }}</code></p>
+            <p>Data: <code>{{ data_dir }}</code></p>
+        </div>
+        <div class="card">
+            <h3>Backup</h3>
+            <button onclick="runBackup()">Run Backup Now</button>
+            <pre id="backup-output"></pre>
+        </div>
+        <div class="card">
+            <h3>Sync Configuration</h3>
+            <div class="form-group">
+                <label>GitHub PAT:</label>
+                <input type="password" id="sync-api-key" placeholder="ghp_..." style="width:300px">
+            </div>
+            <div class="form-group">
+                <label>GitHub Pages Target Repo:</label>
+                <input type="text" id="sync-pages-repo" value="YeLuo45/ai-superpower" placeholder="owner/repo" style="width:300px">
+            </div>
+            <div class="form-group">
+                <label>prj-proposals-manager Repo:</label>
+                <input type="text" id="sync-prj-repo" value="YeLuo45/prj-proposals-manager" placeholder="owner/repo" style="width:300px">
+            </div>
+            <div class="form-group">
+                <label>Sync Frequency:</label>
+                <select id="sync-frequency">
+                    <option value="off">Off</option>
+                    <option value="1h">1 hour</option>
+                    <option value="6h">6 hours</option>
+                    <option value="12h">12 hours</option>
+                    <option value="1d">1 day</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Last Run:</label>
+                <span id="sync-last-run">—</span>
+            </div>
+            <div style="margin-top:0.8rem">
+                <button onclick="saveSyncConfig()" style="background:#4ade80;color:#000">Save Config</button>
+                <button onclick="runSyncNow()" style="background:#60a5fa">Sync Now</button>
+            </div>
+            <pre id="sync-output"></pre>
+        </div>
+    </main>
+    <script>window.AISP_CONFIG = {{ {"api_key": api_key}|tojson }};</script>
+    <script src="/static/app.js"></script>
+    <script>
+        // Load sync config on page load
+        document.addEventListener('DOMContentLoaded', loadSyncConfig);
+    </script>
+</body>
+</html>
