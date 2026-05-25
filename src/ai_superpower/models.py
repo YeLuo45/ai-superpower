@@ -55,8 +55,10 @@ STATUS_TRANSITIONS: dict[str, set[str]] = {
 PROJECTS_CSV_HEADERS = ["id", "name", "proposal_count", "git_repo", "local_path", "description", "last_update", "create_at", "prj_url", "sync_enabled", "sync_last_run"]
 PROPOSALS_CSV_HEADERS = [
     "id", "title", "owner", "status", "project_id", "project_name", "stage",
-    "prd_path", "tech_solution_path", "project_path", "git_repo", "deployment_url",
+    "prd_path", "tech_solution_path", "project_path", "project_local_path",
+    "git_repo", "deployment_url",
     "prd_confirmation", "tech_expectations", "acceptance", "last_update",
+    "create_at", "update_at",
     "engine", "target", "game_type", "notes",
 ]
 
@@ -184,12 +186,15 @@ class Proposal(BaseModel):
     prd_path: str = ""
     tech_solution_path: str = ""
     project_path: str = ""
+    project_local_path: str = ""
     git_repo: str = ""
     deployment_url: str = ""
     prd_confirmation: str = ""
     tech_expectations: str = ""
     acceptance: str = ""
     last_update: str = ""
+    create_at: str = ""
+    update_at: str = ""
     engine: str = ""
     target: str = ""
     game_type: str = ""

@@ -141,18 +141,48 @@ def health():
 # ─── Projects ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/projects", response_model=Project, status_code=201)
-def create_project(data: ProjectCreate, _ak: str = Header(..., alias="X-API-Key")):
+def create_project(data: ProjectCreate, force: bool = Query(False), _ak: str = Header(..., alias="X-API-Key")):
     s = get_storage()
     errors = s.validate_project(data.model_dump())
     if errors:
         raise HTTPException(status_code=400, detail="\n".join(errors))
-    return s.create_project(
-        name=data.name,
-        git_repo=data.git_repo or "",
-        local_path=data.local_path or "",
-        description=data.description or "",
-        prj_url=data.prj_url or "",
-    )
+    try:
+        return s.create_project(
+            name=data.name,
+            git_repo=data.git_repo or "",
+            local_path=data.local_path or "",
+            description=data.description or "",
+            prj_url=data.prj_url or "",
+            force=force,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "Duplicate project" in msg:
+            # Extract existing_id from error if present
+            existing_id = ""
+            if "existing_id=" in msg:
+                existing_id = msg.split("existing_id=")[-1].strip()
+            raise HTTPException(
+                status_code=409,
+                detail=msg,
+            )
+        raise HTTPException(status_code=409, detail=msg)
+
+
+@app.get("/api/projects/check-duplicate")
+def check_project_duplicate(
+    name: Optional[str] = Query(None),
+    git_repo: Optional[str] = Query(None),
+    _ak: str = Header(..., alias="X-API-Key"),
+):
+    """Check if a project with the same name or git_repo already exists."""
+    if not name and not git_repo:
+        raise HTTPException(status_code=400, detail="name or git_repo required")
+    s = get_storage()
+    result = s.check_project_duplicate(name=name or "", git_repo=git_repo or "")
+    if result is None:
+        return {"duplicate": False}
+    return {"duplicate": True, **result}
 
 
 @app.get("/api/projects", response_model=PageResponse)
@@ -538,7 +568,7 @@ def list_proposals(
     owner: Optional[str] = None,
     search: Optional[str] = None,
     stage: Optional[str] = None,
-    sort_by: Optional[str] = Query("last_update", description="Sort field: last_update, create_at, title, id, status, stage"),
+    sort_by: Optional[str] = Query("last_update", description="Sort field: last_update, create_at, update_at, title, id, status, stage"),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     _ak: str = Header(..., alias="X-API-Key"),
 ):
@@ -600,6 +630,33 @@ def delete_proposal(proposal_id: str, _ak: str = Header(..., alias="X-API-Key"))
     if not deleted:
         raise HTTPException(status_code=404, detail="Proposal not found")
     return Response(status_code=204)
+
+
+class MergeByProjectRequest(BaseModel):
+    target_project_id: str
+    source_project_name: str
+
+
+class MergeByProjectResponse(BaseModel):
+    merged_count: int
+    merged_ids: list[str]
+
+
+@app.post("/api/proposals/merge-by-project", response_model=MergeByProjectResponse)
+def merge_proposals_by_project(body: MergeByProjectRequest, _ak: str = Header(..., alias="X-API-Key")):
+    """Merge all proposals from source_project_name into target_project_id.
+
+    Only proposals with status 'active' or 'archived' are merged.
+    """
+    s = get_storage()
+    try:
+        result = s.merge_proposals_by_project(
+            target_project_id=body.target_project_id,
+            source_project_name=body.source_project_name,
+        )
+        return MergeByProjectResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ─── Validate ─────────────────────────────────────────────────────────────────
