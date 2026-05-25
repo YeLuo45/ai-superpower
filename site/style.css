@@ -1,0 +1,62 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; }
+nav { background: #1a1d27; padding: 1rem 2rem; display: flex; gap: 2rem; border-bottom: 1px solid #2d3348; }
+nav a { color: #94a3b8; text-decoration: none; font-weight: 500; }
+nav a.active, nav a:hover { color: #f472b6; }
+main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+h1 { margin-bottom: 1.5rem; color: #f472b6; }
+h2 { margin: 1.5rem 0 0.75rem; color: #e2e8f0; }
+.stats { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+.stats-dashboard { flex-wrap: wrap; }
+.stats-dashboard .stat-card { min-width: 140px; }
+.stat-card-today .stat-value { color: #4ade80; }
+.charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+.chart-card { min-height: 280px; }
+.chart-card canvas { max-height: 220px; }
+@media (max-width: 768px) {
+    .stats-dashboard { flex-direction: column; }
+    .charts-grid { grid-template-columns: 1fr; }
+}
+.stat-card { background: #1a1d27; border: 1px solid #2d3348; border-radius: 8px; padding: 1.5rem 2rem; flex: 1; }
+.stat-value { font-size: 2rem; font-weight: 700; color: #f472b6; }
+.stat-label { color: #94a3b8; margin-top: 0.25rem; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+button { background: #f472b6; color: #0f1117; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600; }
+button:hover { opacity: 0.85; }
+.search-bar, .filters { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+input, select, textarea { background: #1a1d27; color: #e2e8f0; border: 1px solid #2d3348; padding: 0.5rem 0.75rem; border-radius: 6px; min-width: 200px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #f472b6; }
+textarea { min-height: 80px; resize: vertical; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+th, td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid #2d3348; }
+th { color: #f472b6; font-weight: 600; }
+tr:hover td { background: #1a1d27; }
+.badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+.badge-intake { background: #1e3a5f; color: #60a5fa; }
+.badge-in_dev { background: #1a3417; color: #4ade80; }
+.badge-accepted { background: #2d1f4e; color: #c084fc; }
+.badge-rejected { background: #4a1f1a; color: #f87171; }
+.card { background: #1a1d27; border: 1px solid #2d3348; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+.card h3 { color: #f472b6; margin-bottom: 1rem; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.hidden { display: none !important; }
+.modal.hidden { display: none; }
+.dashboard-error { background: #4a1f1a; border: 1px solid #f87171; color: #fca5a5; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.875rem; }
+.modal-content { background: #1a1d27; border: 1px solid #2d3348; border-radius: 12px; padding: 2rem; width: 480px; max-width: 95vw; position: relative; }
+.close { position: absolute; right: 1rem; top: 1rem; font-size: 1.5rem; cursor: pointer; color: #94a3b8; }
+.close:hover { color: #f472b6; }
+form label { display: block; margin-bottom: 1rem; color: #94a3b8; }
+form label input, form label select, form label textarea { display: block; width: 100%; margin-top: 0.25rem; }
+.pagination { display: flex; gap: 0.5rem; margin-top: 1rem; justify-content: center; }
+.pagination button { background: #2d3348; color: #e2e8f0; padding: 0.4rem 0.8rem; font-size: 0.875rem; }
+.pagination button.active { background: #f472b6; color: #0f1117; }
+#recent-activity { display: flex; flex-direction: column; gap: 0.5rem; }
+.activity-item { background: #1a1d27; border: 1px solid #2d3348; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.875rem; }
+.activity-item .op { color: #f472b6; font-weight: 600; }
+.activity-item .entity { color: #60a5fa; }
+.activity-item .field { color: #4ade80; }
+.activity-item .old, .activity-item .new { font-family: monospace; }
+.activity-item .old { color: #f87171; text-decoration: line-through; }
+.activity-item .new { color: #4ade80; }
+pre { background: #0f1117; padding: 1rem; border-radius: 6px; overflow-x: auto; margin-top: 0.5rem; font-size: 0.8rem; }
+code { background: #2d3348; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.875rem; }

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Superpower Dev - Page Not Found</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    h1 { color: #333; }
+    ul { line-height: 1.8; }
+    a { color: #0066cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Page Not Found</h1>
+  <p>Select a page:</p>
+  <ul>
+    <li><a href="/index.html">Index</a></li>
+    <li><a href="/settings.html">Settings</a></li>
+    <li><a href="/audit.html">Audit</a></li>
+    <li><a href="/projects/list.html">Projects</a></li>
+    <li><a href="/proposals/list.html">Proposals</a></li>
+  </ul>
+  <p><a href="/">Go to Home</a></p>
+  <script>
+    var path = window.location.pathname;
+    if (path && path !== '/') {
+      fetch(path).then(function(r) {
+        if (r.ok) window.location.href = path;
+      }).catch(function() {});
+    }
+  </script>
+</body>
+</html>
