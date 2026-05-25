@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ai-superpower</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav>
+        <a href="/" class="active">Dashboard</a>
+        <a href="/web/projects">Projects</a>
+        <a href="/web/proposals">Proposals</a>
+        <a href="/web/audit">Audit</a>
+        <a href="/web/settings">Settings</a>
+    </nav>
+    <main>
+        <div class="page-header">
+            <h1>Dashboard</h1>
+            <select id="trend-days" onchange="loadDashboard()">
+                <option value="7">近 7 天</option>
+                <option value="30" selected>近 30 天</option>
+                <option value="90">近 90 天</option>
+            </select>
+        </div>
+        <div id="dashboard-error" class="dashboard-error hidden"></div>
+        <div class="stats stats-dashboard">
+            <div class="stat-card">
+                <div class="stat-value" id="project-count">—</div>
+                <div class="stat-label">项目总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="proposal-count">—</div>
+                <div class="stat-label">提案总数</div>
+            </div>
+            <div class="stat-card stat-card-today">
+                <div class="stat-value" id="today-project-count">—</div>
+                <div class="stat-label">今日新增项目</div>
+            </div>
+            <div class="stat-card stat-card-today">
+                <div class="stat-value" id="today-proposal-count">—</div>
+                <div class="stat-label">今日新增提案</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="audit-count">—</div>
+                <div class="stat-label">审计条目</div>
+            </div>
+        </div>
+        <div class="charts-grid">
+            <div class="card chart-card">
+                <h3>新建趋势</h3>
+                <canvas id="trend-chart"></canvas>
+            </div>
+            <div class="card chart-card">
+                <h3>提案状态分布</h3>
+                <canvas id="status-chart"></canvas>
+            </div>
+        </div>
+        <h2>最近活动</h2>
+        <div id="recent-activity">Loading...</div>
+    </main>
+    <script>window.AISP_CONFIG = {{ {"api_key": api_key}|tojson }};</script>
+    <script src="/static/app.js"></script>
+    <script>loadDashboard();</script>
+</body>
+</html>

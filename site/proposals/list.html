@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proposals - ai-superpower</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/web/projects">Projects</a>
+        <a href="/web/proposals" class="active">Proposals</a>
+        <a href="/web/audit">Audit</a>
+        <a href="/web/settings">Settings</a>
+    </nav>
+    <main>
+        <div class="page-header">
+            <h1>Proposals</h1>
+            <button onclick="showProposalForm()">+ New Proposal</button>
+        </div>
+        <div class="filters">
+            <input type="text" id="search" placeholder="Search..." oninput="loadProposals(1)">
+            <select id="status-filter" onchange="loadProposals(1)">
+                <option value="">All Status</option>
+                <option value="intake">intake</option>
+                <option value="clarifying">clarifying</option>
+                <option value="prd_pending_confirmation">prd_pending_confirmation</option>
+                <option value="approved_for_dev">approved_for_dev</option>
+                <option value="in_dev">in_dev</option>
+                <option value="accepted">accepted</option>
+                <option value="deployed">deployed</option>
+            </select>
+            <select id="sort-by" onchange="loadProposals(1)">
+                <option value="last_update">Last Update</option>
+                <option value="create_at">Create Time</option>
+                <option value="title">Title</option>
+                <option value="id">ID</option>
+                <option value="status">Status</option>
+                <option value="stage">Stage</option>
+            </select>
+            <select id="sort-order" onchange="loadProposals(1)">
+                <option value="desc">↓ Desc</option>
+                <option value="asc">↑ Asc</option>
+            </select>
+        </div>
+        <div id="proposal-list">Loading...</div>
+        <div id="pagination"></div>
+    </main>
+
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">New Proposal</h2>
+            <form id="proposal-form" onsubmit="submitProposalForm(event)">
+                <input type="hidden" id="proposal-id">
+                <label>Title <input type="text" id="title" required></label>
+                <label>Project ID <input type="text" id="project_id" required></label>
+                <label>Owner <input type="text" id="owner"></label>
+                <label>Stage <select id="stage"><option value="">—</option></select></label>
+                <label>Engine <input type="text" id="engine"></label>
+                <label>Target <input type="text" id="target"></label>
+                <label>Game Type <input type="text" id="game_type"></label>
+                <label>Notes <textarea id="notes"></textarea></label>
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <script>window.AISP_CONFIG = {{ {"api_key": api_key}|tojson }};</script>
+    <script src="/static/app.js"></script>
+    <script>
+        loadProposals();
+        loadStageOptions();
+    </script>
+</body>
+</html>

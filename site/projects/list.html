@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects - ai-superpower</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/web/projects" class="active">Projects</a>
+        <a href="/web/proposals">Proposals</a>
+        <a href="/web/audit">Audit</a>
+        <a href="/web/settings">Settings</a>
+    </nav>
+    <main>
+        <div class="page-header">
+            <h1>Projects</h1>
+            <button onclick="showProjectForm()">+ New Project</button>
+        </div>
+        <div class="search-bar">
+            <input type="text" id="search" placeholder="Search projects..." oninput="loadProjects(1)">
+            <select id="sort-by" onchange="loadProjects(1)">
+                <option value="last_update">Last Update</option>
+                <option value="create_at">Create Time</option>
+                <option value="name">Name</option>
+                <option value="id">ID</option>
+            </select>
+            <select id="sort-order" onchange="loadProjects(1)">
+                <option value="desc">↓ Desc</option>
+                <option value="asc">↑ Asc</option>
+            </select>
+        </div>
+        <div id="project-list">Loading...</div>
+        <div id="pagination"></div>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">New Project</h2>
+            <form id="project-form" onsubmit="submitProjectForm(event)">
+                <input type="hidden" id="project-id">
+                <label>Name <input type="text" id="name" required></label>
+                <label>Git Repo <input type="text" id="git_repo"></label>
+                <label>PRJ URL <input type="text" id="prj_url" placeholder="https://user.github.io/project/"></label>
+                <label>Local Path <input type="text" id="local_path"></label>
+                <label>Description <textarea id="description"></textarea></label>
+                <button type="submit">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <script>window.AISP_CONFIG = {{ {"api_key": api_key}|tojson }};</script>
+    <script src="/static/app.js"></script>
+    <script>loadProjects();</script>
+</body>
+</html>

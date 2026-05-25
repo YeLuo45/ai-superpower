@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Log - ai-superpower</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <a href="/">Dashboard</a>
+        <a href="/web/projects">Projects</a>
+        <a href="/web/proposals">Proposals</a>
+        <a href="/web/audit" class="active">Audit</a>
+        <a href="/web/settings">Settings</a>
+    </nav>
+    <main>
+        <h1>Audit Log</h1>
+        <div id="audit-list">Loading...</div>
+        <div id="pagination"></div>
+    </main>
+    <script>window.AISP_CONFIG = {{ {"api_key": api_key}|tojson }};</script>
+    <script src="/static/app.js"></script>
+    <script>loadAudit();</script>
+</body>
+</html>
