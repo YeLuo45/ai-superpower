@@ -1,0 +1,131 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - dev-env
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+
+      - name: Create JSON data directory
+        run: mkdir -p site/data
+
+      - name: Start aisp-dev server in background
+        run: |
+          python -m ai_superpower.cli serve --port 8100 &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+          sleep 5
+
+      - name: Wait for server to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8100/api/health > /dev/null 2>&1; then
+              echo "Server is ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Trigger data export
+        run: |
+          curl -X POST http://localhost:8100/api/sync/export \
+            -H "X-API-Key: 3fa51f51c4a7de60abcc7acd2cd44933" \
+            -H "Content-Type: application/json"
+
+      - name: Poll export status until complete
+        run: |
+          MAX_ATTEMPTS=60
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            STATUS=$(curl -s http://localhost:8100/api/sync/export-status \
+              -H "X-API-Key: 3fa51f51c4a7de60abcc7acd2cd44933")
+            echo "Status attempt $i: $STATUS"
+
+            if echo "$STATUS" | grep -q '"status":"complete"'; then
+              echo "Export complete!"
+              break
+            elif echo "$STATUS" | grep -q '"status":"failed"'; then
+              echo "Export failed!"
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+      - name: Copy exported JSON data to site/data
+        run: |
+          cp db/proposals.csv site/data/ 2>/dev/null || true
+          cp db/projects.csv site/data/ 2>/dev/null || true
+          if [ -d "/tmp/aisp-export" ]; then
+            cp /tmp/aisp-export/*.json site/data/ 2>/dev/null || true
+          fi
+          ls -la site/data/
+
+      - name: Copy templates and static files to site
+        run: |
+          cp -r src/ai_superpower/templates/* site/
+          cp -r src/ai_superpower/static/* site/
+          ls -la site/
+
+      - name: Create SPA 404.html with all HTML pages
+        run: |
+          cat > site/404.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>AI Superpower Dev - Page Not Found</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 40px; }
+              h1 { color: #333; }
+              ul { line-height: 1.8; }
+              a { color: #0066cc; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+            </style>
+          </head>
+          <body>
+            <h1>Page Not Found</h1>
+            <p>Select a page:</p>
+            <ul>
+              <li><a href="/ai-superpower-dev/index.html">Index</a></li>
+              <li><a href="/ai-superpower-dev/settings.html">Settings</a></li>
+              <li><a href="/ai-superpower-dev/audit.html">Audit</a></li>
+              <li><a href="/ai-superpower-dev/projects/list.html">Projects</a></li>
+              <li><a href="/ai-superpower-dev/proposals/list.html">Proposals</a></li>
+            </ul>
+            <p><a href="/ai-superpower-dev/">Go to Home</a></p>
+            <script>
+              var path = window.location.pathname.replace('/ai-superpower-dev', '');
+              if (path && path !== '/') {
+                fetch(path).then(function(r) {
+                  if (r.ok) window.location.href = path;
+                }).catch(function() {});
+              }
+            </script>
+          </body>
+          </html>
+HTMLEOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
