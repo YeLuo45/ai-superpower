@@ -237,6 +237,21 @@ async function submitProjectForm(e) {
     } catch (e) { alert('Error: ' + e.message); }
 }
 
+async function checkDuplicateProject() {
+    const name = document.getElementById('name').value;
+    const gitRepo = document.getElementById('git_repo').value;
+    if (!name && !gitRepo) { alert('Enter name or git_repo first'); return; }
+    try {
+        const qs = new URLSearchParams({ name, git_repo: gitRepo }).toString();
+        const result = await api('GET', '/projects/check-duplicate?' + qs);
+        if (result.duplicate) {
+            alert('Duplicate found: ' + result.reason + ', existing ID: ' + result.existing_id);
+        } else {
+            alert('No duplicate found');
+        }
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
 // ─── Proposals ────────────────────────────────────────────────────────────────
 
 async function loadProposals(page = 1) {
@@ -254,11 +269,13 @@ async function loadProposals(page = 1) {
         const el = document.getElementById('proposal-list');
         if (!data.items.length) { el.innerHTML = '<p>No proposals found.</p>'; }
         else {
-            el.innerHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Stage</th><th>Owner</th><th>Project</th><th></th><th></th></tr></thead><tbody>
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Stage</th><th>Owner</th><th>Project</th><th>Created</th><th>Updated</th><th></th><th></th></tr></thead><tbody>
                 ${data.items.map(p => `<tr>
                     <td>${p.id}</td><td>${esc(p.title)}</td>
                     <td><span class="badge badge-${esc(p.status)}">${p.status}</span></td>
                     <td>${p.stage || '—'}</td><td>${p.owner || '—'}</td><td>${p.project_id}</td>
+                    <td>${p.create_at ? p.create_at.slice(5,10) : '—'}</td>
+                    <td>${p.update_at ? p.update_at.slice(5,10) : '—'}</td>
                     <td><button onclick="showProposalForm('${p.id}')">Edit</button></td>
                     <td><button onclick="deleteProposal('${p.id}')" style="color:#f87171">Del</button></td>
                 </tr>`).join('')}
@@ -503,6 +520,37 @@ async function deleteProposal(id) {
     if (!confirm(`Delete proposal ${id}?`)) return;
     try {
         await api('DELETE', '/proposals/' + id);
+        loadProposals(currentPage.proposals);
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
+// ─── Merge ────────────────────────────────────────────────────────────────────
+
+async function showMergeModal() {
+    document.getElementById('merge-modal').classList.remove('hidden');
+    // Load projects for target dropdown
+    try {
+        const data = await api('GET', '/projects?page_size=200');
+        const sel = document.getElementById('target-project-id');
+        sel.innerHTML = data.items.map(p => `<option value="${p.id}">${p.id} - ${p.name}</option>`).join('');
+    } catch (e) { alert('Error loading projects: ' + e.message); }
+}
+
+function closeMergeModal() {
+    document.getElementById('merge-modal').classList.add('hidden');
+}
+
+async function submitMergeForm(e) {
+    e.preventDefault();
+    const sourceName = document.getElementById('source-project-name').value;
+    const targetId = document.getElementById('target-project-id').value;
+    try {
+        const result = await api('POST', '/proposals/merge-by-project', {
+            source_project_name: sourceName,
+            target_project_id: targetId,
+        });
+        alert('Merge done: ' + (result.message || JSON.stringify(result)));
+        closeMergeModal();
         loadProposals(currentPage.proposals);
     } catch (e) { alert('Error: ' + e.message); }
 }

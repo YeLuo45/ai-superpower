@@ -8,9 +8,13 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Create site directory
         run: mkdir -p site/data
@@ -26,15 +30,70 @@ jobs:
           cp -r src/ai_superpower/static/* site/ 2>/dev/null || true
           ls -la site/
 
-      - name: Create 404.html
+      - name: Prepare Web UI for deployment
         run: |
-          echo 'PCFET0NUIEhUTUw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+CiAgPG1ldGEgY2hhcnNldD0iVVRGLTgiPgogIDxtZXRhIG5hbWU9InZpZXdwb3J0IiBjb250ZW50PSJ3aWR0aD1kZXZpY2Utd2lkdGgsIGluaXRpYWwtc2NhbGU9MS4wIj4KICA8dGl0bGU+QUkgU3VwZXJwb3dlciBEZXYgLSBQYWdlIE5vdCBGb3VuZDwvdGl0bGU+CiAgPHN0eWxlPgogICAgYm9keSB7IGZvbnQtZmFtaWx5OiBBcmlhbCwgc2Fucy1zZXJpZjsgbWFyZ2luOiA0MHB4OyB9CiAgICBoMSB7IGNvbG9yOiAjMzMzOyB9CiAgICB1bCB7IGxpbmUtaGVpZ2h0OiAxLjg7IH0KICAgIGEgeyBjb2xvcjogIzAwNjZjYykgdGV4dC1kZWNvcmF0aW9uOiBub25lOyB9CiAgICBhOmhvdmVyIHsgdGV4dC1kZWNvcmF0aW9uOiB1bmRlcmxpbmU7IH0KICA8L3N0eWxlPgo8L2hlYWQ+Cjxib2R5PgogIDxoMT5QYWdlIE5vdCBGb3VuZDwvaDE+CiAgPHA+U2VsZWN0IGEgcGFnZTo8L3A+CiAgPHVsPgogICAgPGxpPjxhIGhyZWY9Ii9pbmRleC5odG1sIj5JbmRleDwvaW8+PC9saT4KICAgIDxsaT48YSBocmVmPSIvc2V0dGluZ3MuaHRtbCI+VGVtcGxlPC9hPjwvbGk+CiAgICA8bGk+PGEgaHJlZj0iL2F1ZGl0Lmh0bWwiPkF1ZGl0PC9hPjwvbGk+CiAgICA8bGk+PGEgaHJlZj0iL3Byb2plY3RzL2xpc3QuaHRtbCI+UHJvamVjdHM8L2E+PC9saT4KICAgIDxsaT48YSBocmVmPSIvcHJvcG9zYWxzL2xpc3QuaHRtbCI+UHJvcG9zYWxzPC9hPjwvbGk+CiAgPC91bD4KICA8cD48YSBocmVmPSIvIj5HbyB0byBIb21lPC9hPjwvcD4KICA8c2NyaXB0PgogICAgdmFyIHBhdGggPSB3aW5kb3cubG9jYXRpb24ucGF0aG5hbWU7CiAgICBpZiAocGF0aCAmJiBwYXRoICE9PSAiLyIpIHsKICAgICAgZmV0Y2gocGF0aCkudGhlbihmdW5jdGlvbihyKSB7CiAgICAgICAgaWYgKHIub2spIHdpbmRvdy5sb2NhdGlvbi5ocmVmID0gcGF0aDsKICAgICAgfSkuY2F0Y2goZnVuY3Rpb24oKSB7fSk7CiAgICB9CiAgPC9zY3JpcHQ+CjwvYm9keT4KPC9odG1sPg==' | base64 -d > site/404.html
+          # Use web-ui.html as the main index for SPA behavior
+          cp web-ui.html site/index.html
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          publish_branch: gh-pages
-          user_name: github-actions[bot]
-          user_email: github-actions[bot]@users.noreply.github.com
+      - name: Copy 404.html
+        run: cp .github/workflows/404.html site/404.html
+
+      - name: Push to gh-pages via GitHub REST API
+        run: python3 << 'PYEOF'
+import subprocess, os, base64, urllib.request, json
+
+site_dir = "site"
+branch = "gh-pages"
+repo = "YeLuo45/ai-superpower-dev"
+token = os.environ.get("GITHUB_TOKEN", "")
+
+def github_api(method, path, data=None):
+    url = f"https://api.github.com/{path}"
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    }
+    req = urllib.request.Request(url, data=json.dumps(data).encode() if data else None, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read())
+    except Exception as e:
+        print(f"API error: {e}")
+        return None
+
+# Get current ref
+ref_data = github_api("GET", f"repos/{repo}/git/ref/heads/{branch}")
+if not ref_data:
+    main_sha = github_api("GET", f"repos/{repo}/git/ref/heads/master")["object"]["sha"]
+    github_api("POST", f"repos/{repo}/git/refs", {"ref": "refs/heads/gh-pages", "sha": main_sha})
+    ref_data = github_api("GET", f"repos/{repo}/git/ref/heads/{branch}")
+
+current_tree_sha = ref_data["object"]["sha"]
+
+tree_items = []
+for root, dirs, files in os.walk(site_dir):
+    for fname in files:
+        fpath = os.path.join(root, fname)
+        rel_path = os.path.relpath(fpath, site_dir)
+        with open(fpath, "rb") as f:
+            content = f.read()
+        encoded = base64.b64encode(content).decode()
+        blob = github_api("POST", f"repos/{repo}/git/blobs", {"content": encoded, "encoding": "base64"})
+        if blob:
+            tree_items.append({"path": rel_path, "mode": "100644", "type": "blob", "sha": blob["sha"]})
+
+new_tree = github_api("POST", f"repos/{repo}/git/trees", {"base_tree": current_tree_sha, "tree": tree_items})
+if not new_tree:
+    print("Failed to create tree")
+    exit(1)
+
+commit = github_api("POST", f"repos/{repo}/git/commits", {
+    "message": "Deploy: static site via GitHub Actions",
+    "tree": new_tree["sha"],
+    "parents": [current_tree_sha]
+})
+
+github_api("PATCH", f"repos/{repo}/git/refs/heads/{branch}", {"sha": commit["sha"]})
+print(f"Deployed successfully: {commit['sha']}")
+PYEOF
