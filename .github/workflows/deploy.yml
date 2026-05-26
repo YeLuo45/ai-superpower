@@ -44,7 +44,7 @@ import subprocess, os, base64, urllib.request, json
 
 site_dir = "site"
 branch = "gh-pages"
-repo = "YeLuo45/ai-superpower-dev"
+repo = "YeLuo45/ai-superpower"
 token = os.environ.get("GITHUB_TOKEN", "")
 
 def github_api(method, path, data=None):
