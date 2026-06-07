@@ -10,30 +10,65 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Create site directory
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+
+      - name: Create JSON data directory
         run: mkdir -p site/data
 
-      - name: Copy data files
+      - name: Start aisp-dev server in background
         run: |
-          cp db/proposals.csv site/data/ 2>/dev/null || true
+          python -m ai_superpower.cli serve --port 8100 &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+          sleep 5
+
+      - name: Wait for server to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -s http://localhost:8100/health > /dev/null 2>&1; then
+              echo "Server is ready"
+              break
+            fi
+            echo "Waiting for server... attempt $i/60"
+            sleep 2
+          done
+          curl -s http://localhost:8100/health
+
+      - name: Trigger data export
+        run: |
+          curl -X POST http://localhost:8100/api/sync/export \
+            -H "X-API-Key: 3fa51f51c4a7de60abcc7acd2cd44933" \
+            -H "Content-Type: application/json"
+
+      - name: Copy data files to site
+        run: |
           cp db/projects.csv site/data/ 2>/dev/null || true
+          cp db/proposals.csv site/data/ 2>/dev/null || true
+          if [ -d "/tmp/aisp-export" ]; then
+            cp /tmp/aisp-export/*.json site/data/ 2>/dev/null || true
+          fi
+          ls -la site/data/
 
-      - name: Copy templates and static files
+      - name: Copy templates and static files to site
         run: |
-          cp -r src/ai_superpower/templates/* site/ 2>/dev/null || true
-          cp -r src/ai_superpower/static/* site/ 2>/dev/null || true
+          cp -r src/ai_superpower/templates/* site/
+          cp -r src/ai_superpower/static/* site/
           ls -la site/
-
-      - name: Prepare Web UI for deployment
-        run: |
-          # Use web-ui.html as the main index for SPA behavior
-          cp web-ui.html site/index.html
 
       - name: Generate 404.html
         run: |
@@ -75,63 +110,11 @@ jobs:
           </html>
           HTMLEOF
 
-      - name: Push to gh-pages via GitHub REST API
-        run: |
-          python3 << 'PYEOF'
-          import subprocess, os, base64, urllib.request, json
-
-          site_dir = "site"
-          branch = "gh-pages"
-          repo = "YeLuo45/ai-superpower"
-          token = os.environ.get("GITHUB_TOKEN", "")
-
-          def github_api(method, path, data=None):
-              url = f"https://api.github.com/{path}"
-              headers = {
-                  "Authorization": f"token {token}",
-                  "Accept": "application/vnd.github.v3+json",
-                  "Content-Type": "application/json"
-              }
-              req = urllib.request.Request(url, data=json.dumps(data).encode() if data else None, headers=headers, method=method)
-              try:
-                  with urllib.request.urlopen(req, timeout=30) as r:
-                      return json.loads(r.read())
-              except Exception as e:
-                  print(f"API error: {e}")
-                  return None
-
-          # Get current ref
-          ref_data = github_api("GET", f"repos/{repo}/git/ref/heads/{branch}")
-          if not ref_data:
-              main_sha = github_api("GET", f"repos/{repo}/git/ref/heads/master")["object"]["sha"]
-              github_api("POST", f"repos/{repo}/git/refs", {"ref": "refs/heads/gh-pages", "sha": main_sha})
-              ref_data = github_api("GET", f"repos/{repo}/git/ref/heads/{branch}")
-
-          current_tree_sha = ref_data["object"]["sha"]
-
-          tree_items = []
-          for root, dirs, files in os.walk(site_dir):
-              for fname in files:
-                  fpath = os.path.join(root, fname)
-                  rel_path = os.path.relpath(fpath, site_dir)
-                  with open(fpath, "rb") as f:
-                      content = f.read()
-                  encoded = base64.b64encode(content).decode()
-                  blob = github_api("POST", f"repos/{repo}/git/blobs", {"content": encoded, "encoding": "base64"})
-                  if blob:
-                      tree_items.append({"path": rel_path, "mode": "100644", "type": "blob", "sha": blob["sha"]})
-
-          new_tree = github_api("POST", f"repos/{repo}/git/trees", {"base_tree": current_tree_sha, "tree": tree_items})
-          if not new_tree:
-              print("Failed to create tree")
-              exit(1)
-
-          commit = github_api("POST", f"repos/{repo}/git/commits", {
-              "message": "Deploy: static site via GitHub Actions",
-              "tree": new_tree["sha"],
-              "parents": [current_tree_sha]
-          })
-
-          github_api("PATCH", f"repos/{repo}/git/refs/heads/{branch}", {"sha": commit["sha"]})
-          print(f"Deployed successfully: {commit['sha']}")
-          PYEOF
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
