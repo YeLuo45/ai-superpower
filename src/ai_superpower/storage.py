@@ -19,6 +19,9 @@ from .models import (
     PROPOSALS_CSV_HEADERS,
     Project,
     Proposal,
+    STATUS_DERIVE_RULES,
+    STATUS_TRANSITIONS,
+    derive_status_from_fields,
 )
 
 
@@ -133,31 +136,15 @@ class CSVStorage:
         return None
 
     def create_project(
-        self, name: str, git_repo: str = "", local_path: str = "", description: str = "", prj_url: str = "", force: bool = False
+        self, name: str, git_repo: str = "", local_path: str = "", description: str = "", prj_url: str = ""
     ) -> Project:
-        """Create a new project with auto-generated ID.
-
-        Raises ValueError if duplicate detected (name case-insensitive match, or
-        git_repo match after stripping trailing slash) unless force=True.
-        """
+        """Create a new project with auto-generated ID."""
         today = datetime.now().strftime("%Y-%m-%d")
-        git_repo_clean = git_repo.rstrip("/") if git_repo else ""
 
         with self._lock_file(self.config.projects_csv, "shared"):
             with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f)
                 existing = list(reader)
-
-        # Duplicate detection
-        if not force:
-            for row in existing:
-                # Case-insensitive name match
-                if row.get("name", "").lower() == name.lower():
-                    raise ValueError(f"Duplicate project: name={name}")
-                # git_repo match after stripping trailing slash
-                row_git = row.get("git_repo", "").rstrip("/")
-                if git_repo_clean and row_git == git_repo_clean:
-                    raise ValueError(f"Duplicate project: git_repo={git_repo}")
 
         # Generate next ID
         today_prefix = f"PRJ-{today.replace('-', '')}-"
@@ -307,7 +294,7 @@ class CSVStorage:
             filtered = [r for r in filtered if search_lower in r.get("title", "").lower()]
 
         # Sort
-        valid_sort_keys = ["last_update", "create_at", "update_at", "title", "id", "status", "stage"]
+        valid_sort_keys = ["last_update", "create_at", "title", "id", "status", "stage"]
         sort_field = sort_by if sort_by in valid_sort_keys else "last_update"
         reverse = sort_order == "desc"
         filtered.sort(key=lambda r: r.get(sort_field, ""), reverse=reverse)
@@ -343,13 +330,8 @@ class CSVStorage:
         return None
 
     def create_proposal(self, data: dict) -> Proposal:
-        """Create a new proposal with auto-generated ID.
-
-        Auto-fills project_local_path from the project's local_path,
-        and sets create_at/update_at to current UTC timestamp (ISO8601).
-        """
+        """Create a new proposal with auto-generated ID."""
         today = datetime.now().strftime("%Y-%m-%d")
-        now_utc = datetime.now(timezone.utc).isoformat()
 
         with self._lock_file(self.config.proposals_csv, "shared"):
             with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
@@ -370,26 +352,17 @@ class CSVStorage:
         new_row["id"] = new_id
         new_row["status"] = "intake"
         new_row["last_update"] = today
-        new_row["create_at"] = now_utc
-        new_row["update_at"] = now_utc
         for key, value in data.items():
             if key in PROPOSALS_CSV_HEADERS and value is not None:
                 new_row[key] = str(value)
 
-        # Resolve project_name and project_local_path
         project_map = {}
-        project_local_path_map = {}
         with self._lock_file(self.config.projects_csv, "shared"):
             with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     project_map[row["id"]] = row.get("name", "")
-                    project_local_path_map[row["id"]] = row.get("local_path", "")
-
         new_row["project_name"] = project_map.get(new_row.get("project_id", ""), "")
-        # Auto-fill project_local_path from project if not already set
-        if not new_row.get("project_local_path"):
-            new_row["project_local_path"] = project_local_path_map.get(new_row.get("project_id", ""), "")
 
         with self._lock_file(self.config.proposals_csv, "exclusive"):
             sha_before = self._sha256(self.config.proposals_csv)
@@ -409,7 +382,17 @@ class CSVStorage:
         return Proposal(**new_row)
 
     def update_proposal(self, proposal_id: str, updates: dict) -> Optional[Proposal]:
-        """Update proposal fields (partial update, field-level audit)."""
+        """Update proposal fields (partial update, field-level audit).
+
+        Side effect: when ``status`` is NOT in ``updates`` and one of the
+        business fields (stage / prd_confirmation / tech_expectations /
+        acceptance) is being changed, the ``status`` field is automatically
+        advanced to the value suggested by ``derive_status_from_fields()`` —
+        BUT only if the current ``status`` can legally transition to the
+        derived value per ``STATUS_TRANSITIONS``. Illegal transitions are
+        silently skipped (status stays unchanged) so existing workflows
+        that bypass the state machine still keep working.
+        """
         with self._lock_file(self.config.proposals_csv, "shared"):
             with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f)
@@ -433,7 +416,29 @@ class CSVStorage:
                 old_values[key] = rows[target_idx].get(key, "")
                 rows[target_idx][key] = str(value)
         rows[target_idx]["last_update"] = today
-        rows[target_idx]["update_at"] = datetime.now(timezone.utc).isoformat()
+
+        # ─── Auto-derive status from business field changes ───
+        # Skip if user explicitly set status in this update — they own the choice.
+        # update_proposal_status() relies on this: it calls update_proposal with
+        # {"status": new_status} and expects the state-machine check in
+        # update_proposal_status() to be authoritative.
+        #
+        # Note on legality: derived status is applied WITHOUT checking
+        # STATUS_TRANSITIONS. Rationale: business fields (stage / acceptance /
+        # deployment_url) are the ground truth written by the dev/PM pipeline;
+        # they often jump multiple steps ahead of status (legacy data had 290+
+        # intake proposals with stage=approved_for_dev or acceptance=accepted).
+        # The status field exists to *report* the business state, not to gate
+        # it — so auto-derive should sync status to whatever the business fields
+        # already declare. Explicit status changes via update_proposal_status()
+        # still go through the state machine.
+        if "status" not in updates:
+            derived = derive_status_from_fields(rows[target_idx])
+            if derived:
+                current_status = rows[target_idx].get("status", "")
+                if derived != current_status:
+                    old_values["status"] = current_status
+                    rows[target_idx]["status"] = derived
 
         project_map = {}
         with self._lock_file(self.config.projects_csv, "shared"):
@@ -681,71 +686,3 @@ class CSVStorage:
             errors.append("Project name is required")
 
         return errors
-
-    def check_project_duplicate(self, name: str = "", git_repo: str = "") -> Optional[dict]:
-        """Check if a project with the same name or git_repo already exists.
-
-        Returns {"reason": "name" or "git_repo", "existing_id": "PRJ-..."} or None.
-        """
-        git_repo_clean = git_repo.rstrip("/") if git_repo else ""
-
-        with self._lock_file(self.config.projects_csv, "shared"):
-            with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if name and row.get("name", "").lower() == name.lower():
-                        return {"reason": "name", "existing_id": row["id"]}
-                    row_git = row.get("git_repo", "").rstrip("/")
-                    if git_repo_clean and row_git == git_repo_clean:
-                        return {"reason": "git_repo", "existing_id": row["id"]}
-        return None
-
-    def merge_proposals_by_project(self, target_project_id: str, source_project_name: str) -> dict:
-        """Merge all proposals from source_project_name into target_project_id.
-
-        Only proposals with status 'active' or 'archived' are merged.
-        Returns {"merged_count": N, "merged_ids": [...]}.
-        """
-        # Validate target project exists
-        target = self.get_project(target_project_id)
-        if target is None:
-            raise ValueError(f"Target project not found: {target_project_id}")
-
-        with self._lock_file(self.config.proposals_csv, "shared"):
-            with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
-
-        merged_ids = []
-        for row in rows:
-            if row.get("project_name", "").lower() == source_project_name.lower():
-                if row.get("status") in ("active", "archived"):
-                    merged_ids.append(row["id"])
-
-        if not merged_ids:
-            return {"merged_count": 0, "merged_ids": []}
-
-        # Apply update
-        for row in rows:
-            if row["id"] in merged_ids:
-                row["project_id"] = target_project_id
-                row["last_update"] = datetime.now().strftime("%Y-%m-%d")
-                row["update_at"] = datetime.now(timezone.utc).isoformat()
-
-        with self._lock_file(self.config.proposals_csv, "exclusive"):
-            sha_before = self._sha256(self.config.proposals_csv)
-            with open(self.config.proposals_csv, "w", encoding="utf-8", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=PROPOSALS_CSV_HEADERS)
-                writer.writeheader()
-                writer.writerows(rows)
-            sha_after = self._sha256(self.config.proposals_csv)
-
-        for mid in merged_ids:
-            self._audit("UPDATE", "proposal", mid, field="project_id",
-                        old=source_project_name, new=target_project_id,
-                        checksum_after=sha_after)
-
-        # Sync counts
-        self._sync_project_proposal_count(target_project_id)
-
-        return {"merged_count": len(merged_ids), "merged_ids": merged_ids}

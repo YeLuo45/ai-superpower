@@ -21,6 +21,22 @@ class ConfigForTest:
         self.key = "test-key-456"
         self.socket_path = str(tmp_path / "api.sock")
         self.allow_delete = True
+        # Sync fields
+        self.sync_enabled = False
+        self.sync_last_run = ""
+        self.sync_target_repo = ""
+        self.sync_prj_repo = ""
+        self.sync_api_key = ""
+        self.sync_interval_minutes = 0
+        # Backup fields
+        self.backup_enabled = False
+        self.backup_frequency = "1h"
+        self.backup_max_copies = 48
+        self.backup_local_path = str(tmp_path / "backups")
+        self.backup_remote_repo = ""
+        self.backup_remote_branch = "backup"
+        self.backup_api_key = ""
+        self.auto_backup_threshold = 5
 
 
 @pytest.fixture
@@ -39,6 +55,20 @@ def storage(config):
         'key': config.key,
         'socket_path': config.socket_path,
         'allow_delete': True,
+        'sync_enabled': False,
+        'sync_last_run': '',
+        'sync_target_repo': '',
+        'sync_prj_repo': '',
+        'sync_api_key': '',
+        'sync_interval_minutes': 0,
+        'backup_enabled': False,
+        'backup_frequency': '1h',
+        'backup_max_copies': 48,
+        'backup_local_path': config.backup_local_path,
+        'backup_remote_repo': '',
+        'backup_remote_branch': 'backup',
+        'backup_api_key': '',
+        'auto_backup_threshold': 5,
     })()
     s = CSVStorage(cfg, actor="test")
     s.create_project(name="API Test Project")
@@ -59,6 +89,20 @@ def client(storage, config):
         'key': config.key,
         'socket_path': config.socket_path,
         'allow_delete': True,
+        'sync_enabled': False,
+        'sync_last_run': '',
+        'sync_target_repo': '',
+        'sync_prj_repo': '',
+        'sync_api_key': '',
+        'sync_interval_minutes': 0,
+        'backup_enabled': False,
+        'backup_frequency': '1h',
+        'backup_max_copies': 48,
+        'backup_local_path': config.backup_local_path,
+        'backup_remote_repo': '',
+        'backup_remote_branch': 'backup',
+        'backup_api_key': '',
+        'auto_backup_threshold': 5,
     })()
     config_mod.load_config = lambda: test_cfg
     server_mod.load_config = lambda: test_cfg
