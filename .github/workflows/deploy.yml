@@ -33,7 +33,7 @@ jobs:
 
       - name: Start aisp-dev server in background
         run: |
-          python -m ai_superpower.cli serve --port 8100 &
+          aisp run --port 8100 &
           echo "SERVER_PID=$!" >> $GITHUB_ENV
           sleep 5
 
