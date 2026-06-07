@@ -28,6 +28,25 @@ jobs:
           pip install --upgrade pip
           pip install -e .
 
+      - name: Create dev config.toml
+        run: |
+          mkdir -p ~/.ai-superpower/db
+          cat > ~/.ai-superpower/config.toml << 'TOMLEOF'
+          [api]
+          key = "3fa51f51c4a7de60abcc7acd2cd44933"
+          socket_path = "/tmp/aisp-dev.sock"
+          data_dir = "/home/runner/work/ai-superpower/ai-superpower/db"
+
+          [server]
+          host = "0.0.0.0"
+          port = 8100
+
+          [backup]
+          enabled = false
+          TOMLEOF
+          echo "Config created:"
+          cat ~/.ai-superpower/config.toml
+
       - name: Create JSON data directory
         run: mkdir -p site/data
 
