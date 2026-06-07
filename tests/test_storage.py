@@ -684,3 +684,80 @@ class TestFileIntegrity:
         storage.list_projects()
         sha_after = storage._sha256(config.projects_csv)
         assert sha_before == sha_after
+
+
+# ─── URL Normalization (V5 Feature 2) ─────────────────────────────────────────
+
+class TestNormalizeRepoUrl:
+    """Cover storage._normalize_repo_url (line 151 — strip trailing .git)."""
+
+    def test_strips_trailing_git(self, storage):
+        """storage.py line 151 — .git suffix is stripped."""
+        assert storage._normalize_repo_url("https://github.com/x/y.git") == \
+            "https://github.com/x/y"
+
+    def test_strips_trailing_slash_and_git(self, storage):
+        """Trailing slash + .git both removed (order independent)."""
+        assert storage._normalize_repo_url("https://github.com/x/y.git/") == \
+            "https://github.com/x/y"
+
+    def test_lowercases(self, storage):
+        """Case-insensitive comparison: GitHub URLs are case-insensitive on path."""
+        assert storage._normalize_repo_url("HTTPS://GitHub.COM/X/Y") == \
+            "https://github.com/x/y"
+
+    def test_empty_url_returns_empty(self, storage):
+        """Empty / None URLs normalize to empty string."""
+        assert storage._normalize_repo_url("") == ""
+        assert storage._normalize_repo_url(None) == ""
+
+
+# ─── Auto-Backup Error Path ──────────────────────────────────────────────────
+
+class TestAutoBackupErrorPath:
+    """Cover storage._auto_backup_if_needed except branch (lines 636-637)."""
+
+    def test_auto_backup_swallows_backup_exceptions(self, tmp_path, capsys, monkeypatch):
+        """Lines 636-637: exceptions raised inside BackupScheduler.backup()
+        are swallowed and logged, NOT propagated to the caller.
+
+        Setup: make counter hit threshold on the first create, then make
+        BackupScheduler.backup() raise.  Verify the warning is printed and
+        the caller (create_proposal) does not see the exception.
+        """
+        from ai_superpower.storage import CSVStorage
+        from ai_superpower.config import APIConfig
+        from ai_superpower import backup as backup_mod
+
+        cfg = APIConfig(
+            projects_csv=str(tmp_path / "projects.csv"),
+            proposals_csv=str(tmp_path / "proposals.csv"),
+            audit_log=str(tmp_path / "audit.log"),
+            data_dir=str(tmp_path),
+            key="test-key-123",
+            socket_path=str(tmp_path / "api.sock"),
+            allow_delete=True,
+            auto_backup_threshold=1,  # trigger on the very first proposal
+        )
+        s = CSVStorage(cfg, actor="test")
+        proj = s.create_project(name="AutoBackup Test")
+        # Pre-seed the counter so the first create_proposal triggers backup
+        counter_file = tmp_path / f".backup_counter_{proj.id}"
+        counter_file.write_text("0")
+
+        # Make BackupScheduler.backup() raise — should be caught at line 636
+        def boom_backup(self):
+            raise RuntimeError("simulated backup failure")
+        monkeypatch.setattr(backup_mod.BackupScheduler, "backup", boom_backup)
+
+        # This should NOT propagate the exception
+        s.create_proposal({
+            "title": "trigger backup",
+            "owner": "boss",
+            "project_id": proj.id,
+            "stage": "ideation",
+        })
+
+        captured = capsys.readouterr()
+        assert "[AutoBackup] Failed:" in (captured.out + captured.err), \
+            f"Expected '[AutoBackup] Failed:' warning, got: out={captured.out!r}, err={captured.err!r}"
