@@ -304,3 +304,85 @@ def test_git_push_with_token(tmp_path):
     with patch("subprocess.run", side_effect=fake_run):
         bs._git_push(backup_dir, "https://github.com/test/repo.git")
     assert "config" in called_cmds
+
+
+# ─── V5 B2 Coverage: backup.py lines 61, 68-69 ──────────────────────────────
+
+class TestBackupRemotePush:
+    """Cover backup.py lines 61 (SSH git@ branch) and 68-69 (remote push success)."""
+
+    def test_backup_with_ssh_remote_repo(self, tmp_path, monkeypatch):
+        """Line 61: git@... SSH remote URL is taken as-is in the elif branch."""
+        from ai_superpower.config import APIConfig
+        from ai_superpower.backup import BackupScheduler
+
+        # Build a temp data_dir to back up
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        (data_dir / "projects.csv").write_text("id,name\nPRJ-1,Test\n")
+
+        cfg = APIConfig(
+            projects_csv=str(data_dir / "projects.csv"),
+            proposals_csv=str(data_dir / "proposals.csv"),
+            audit_log=str(data_dir / "audit.log"),
+            data_dir=str(data_dir),
+            key="test-key",
+            socket_path=str(tmp_path / "api.sock"),
+            allow_delete=False,
+            backup_local_path=str(tmp_path / "backups"),
+            backup_max_copies=3,
+            backup_remote_repo="git@github.com:test/repo.git",  # SSH form
+            backup_remote_branch="backup",
+            backup_api_key="",
+        )
+
+        # Mock _git_push to record what `remote` it was called with
+        called_with = []
+        def fake_git_push(self, backup_dir, remote):
+            called_with.append(remote)
+        monkeypatch.setattr(BackupScheduler, "_git_push", fake_git_push)
+
+        bs = BackupScheduler(cfg)
+        result = bs.backup()
+
+        assert result["local_done"] is True
+        assert result["remote_done"] is True  # mock _git_push succeeded
+        # The SSH branch (line 61) should have passed remote_repo through
+        assert called_with == ["git@github.com:test/repo.git"]
+
+    def test_backup_remote_push_success(self, tmp_path, monkeypatch, capsys):
+        """Lines 68-69: when _git_push succeeds, remote_done=True and a 'pushed to ...' line is printed."""
+        from ai_superpower.config import APIConfig
+        from ai_superpower.backup import BackupScheduler
+
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        (data_dir / "projects.csv").write_text("id,name\nPRJ-1,Test\n")
+
+        cfg = APIConfig(
+            projects_csv=str(data_dir / "projects.csv"),
+            proposals_csv=str(data_dir / "proposals.csv"),
+            audit_log=str(data_dir / "audit.log"),
+            data_dir=str(data_dir),
+            key="test-key",
+            socket_path=str(tmp_path / "api.sock"),
+            allow_delete=False,
+            backup_local_path=str(tmp_path / "backups"),
+            backup_max_copies=3,
+            backup_remote_repo="https://github.com/test/repo.git",
+            backup_remote_branch="backup",
+            backup_api_key="",
+        )
+
+        # Mock _git_push to succeed (no exception)
+        def fake_git_push(self, backup_dir, remote):
+            pass  # success
+        monkeypatch.setattr(BackupScheduler, "_git_push", fake_git_push)
+
+        bs = BackupScheduler(cfg)
+        result = bs.backup()
+
+        assert result["local_done"] is True
+        assert result["remote_done"] is True
+        captured = capsys.readouterr()
+        assert "Remote backup pushed to" in (captured.out + captured.err)
