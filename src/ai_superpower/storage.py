@@ -135,10 +135,91 @@ class CSVStorage:
                         return Project(**row)
         return None
 
+    @staticmethod
+    def _normalize_repo_url(url: str) -> str:
+        """Normalize a git repo URL for duplicate comparison.
+
+        - Strip trailing slashes
+        - Strip trailing ``.git``
+        - Lower-case (GitHub URLs are case-insensitive on the path)
+        - Strip surrounding whitespace
+        """
+        if not url:
+            return ""
+        s = url.strip().rstrip("/")
+        if s.lower().endswith(".git"):
+            s = s[:-4]
+        return s.lower()
+
+    def check_project_duplicate(
+        self, name: str = "", git_repo: str = ""
+    ) -> Optional[dict]:
+        """Check whether a project with the same name (case-insensitive) or
+        git_repo (trailing-slash + .git normalized) already exists.
+
+        Returns ``None`` if no duplicate; otherwise a dict with::
+
+            {
+                "reason": "name" | "git_repo",
+                "existing_id": "PRJ-...",
+                "existing_value": "<the stored value>",
+            }
+
+        Empty ``name`` and empty ``git_repo`` are not considered duplicates
+        of each other (a project with no git_repo is allowed to coexist with
+        any number of other projects that also have no git_repo).
+        """
+        target_name = (name or "").strip().lower()
+        target_repo = self._normalize_repo_url(git_repo)
+
+        with self._lock_file(self.config.projects_csv, "shared"):
+            with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if target_name:
+                        existing_name = (row.get("name") or "").strip().lower()
+                        if existing_name and existing_name == target_name:
+                            return {
+                                "reason": "name",
+                                "existing_id": row.get("id", ""),
+                                "existing_value": row.get("name", ""),
+                            }
+                    if target_repo:
+                        existing_repo = self._normalize_repo_url(row.get("git_repo", ""))
+                        if existing_repo and existing_repo == target_repo:
+                            return {
+                                "reason": "git_repo",
+                                "existing_id": row.get("id", ""),
+                                "existing_value": row.get("git_repo", ""),
+                            }
+        return None
+
     def create_project(
-        self, name: str, git_repo: str = "", local_path: str = "", description: str = "", prj_url: str = ""
+        self,
+        name: str,
+        git_repo: str = "",
+        local_path: str = "",
+        description: str = "",
+        prj_url: str = "",
+        force: bool = False,
     ) -> Project:
-        """Create a new project with auto-generated ID."""
+        """Create a new project with auto-generated ID.
+
+        When ``force`` is False (default) the new project is checked for
+        duplicates by name (case-insensitive) and by git_repo (trailing slash
+        and ``.git`` suffix normalized). A duplicate raises
+        ``ValueError("Duplicate project: name=... existing_id=...")`` (or
+        ``... git_repo=...``) and no CSV write or audit entry is produced.
+        Pass ``force=True`` to bypass duplicate detection.
+        """
+        if not force:
+            dup = self.check_project_duplicate(name=name, git_repo=git_repo)
+            if dup is not None:
+                raise ValueError(
+                    f"Duplicate project: {dup['reason']}={dup['existing_value']} "
+                    f"existing_id={dup['existing_id']}"
+                )
+
         today = datetime.now().strftime("%Y-%m-%d")
 
         with self._lock_file(self.config.projects_csv, "shared"):
@@ -423,6 +504,12 @@ class CSVStorage:
         # {"status": new_status} and expects the state-machine check in
         # update_proposal_status() to be authoritative.
         #
+        # Also skip if no business field actually changed in this update.
+        # Without this guard, updating an unrelated field (e.g. notes, title)
+        # would re-run derive_status_from_fields() and could *regress* the
+        # status to an earlier state (e.g. stage=ideation stays ideation, so
+        # a previously-promoted status=in_dev gets clobbered back to ideation).
+        #
         # Note on legality: derived status is applied WITHOUT checking
         # STATUS_TRANSITIONS. Rationale: business fields (stage / acceptance /
         # deployment_url) are the ground truth written by the dev/PM pipeline;
@@ -432,7 +519,9 @@ class CSVStorage:
         # it — so auto-derive should sync status to whatever the business fields
         # already declare. Explicit status changes via update_proposal_status()
         # still go through the state machine.
-        if "status" not in updates:
+        _BUSINESS_FIELDS = {"stage", "prd_confirmation", "tech_expectations", "acceptance", "deployment_url"}
+        business_changed = bool(set(old_values.keys()) & _BUSINESS_FIELDS)
+        if "status" not in updates and business_changed:
             derived = derive_status_from_fields(rows[target_idx])
             if derived:
                 current_status = rows[target_idx].get("status", "")

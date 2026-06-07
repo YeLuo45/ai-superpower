@@ -18,6 +18,7 @@ class ConfigForTest:
         self.projects_csv = str(tmp_path / "projects.csv")
         self.proposals_csv = str(tmp_path / "proposals.csv")
         self.audit_log = str(tmp_path / "audit.log")
+        self.data_dir = str(tmp_path)  # needed by _auto_backup_if_needed
         self.key = "test-key-456"
         self.socket_path = str(tmp_path / "api.sock")
         self.allow_delete = True
@@ -52,6 +53,7 @@ def storage(config):
         'projects_csv': config.projects_csv,
         'proposals_csv': config.proposals_csv,
         'audit_log': config.audit_log,
+        'data_dir': config.data_dir,
         'key': config.key,
         'socket_path': config.socket_path,
         'allow_delete': True,
@@ -86,6 +88,7 @@ def client(storage, config):
         'projects_csv': config.projects_csv,
         'proposals_csv': config.proposals_csv,
         'audit_log': config.audit_log,
+        'data_dir': config.data_dir,
         'key': config.key,
         'socket_path': config.socket_path,
         'allow_delete': True,
