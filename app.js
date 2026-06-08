@@ -254,11 +254,13 @@ async function loadProposals(page = 1) {
         const el = document.getElementById('proposal-list');
         if (!data.items.length) { el.innerHTML = '<p>No proposals found.</p>'; }
         else {
-            el.innerHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Stage</th><th>Owner</th><th>Project</th><th></th><th></th></tr></thead><tbody>
+            el.innerHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Stage</th><th>Owner</th><th>Project</th><th>Created</th><th>Updated</th><th></th><th></th></tr></thead><tbody>
                 ${data.items.map(p => `<tr>
                     <td>${p.id}</td><td>${esc(p.title)}</td>
                     <td><span class="badge badge-${esc(p.status)}">${p.status}</span></td>
                     <td>${p.stage || '—'}</td><td>${p.owner || '—'}</td><td>${p.project_id}</td>
+                    <td>${p.create_at ? p.create_at.slice(0,10) : '—'}</td>
+                    <td>${p.update_at ? p.update_at.slice(0,10) : '—'}</td>
                     <td><button onclick="showProposalForm('${p.id}')">Edit</button></td>
                     <td><button onclick="deleteProposal('${p.id}')" style="color:#f87171">Del</button></td>
                 </tr>`).join('')}

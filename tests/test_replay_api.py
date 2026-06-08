@@ -27,10 +27,26 @@ class TestReplayAPI:
             'projects_csv': projects_csv,
             'proposals_csv': proposals_csv,
             'audit_log': audit_log,
+            'data_dir': str(tmp_path),
             'key': api_key,
             'socket_path': str(tmp_path / "api.sock"),
             'allow_delete': True,
-            'data_dir': str(tmp_path),
+            # Sync fields (added when sync feature was added to server.py startup hook)
+            'sync_enabled': False,
+            'sync_last_run': '',
+            'sync_target_repo': '',
+            'sync_prj_repo': '',
+            'sync_api_key': '',
+            'sync_interval_minutes': 0,
+            # Backup fields (added for auto-backup trigger)
+            'backup_enabled': False,
+            'backup_frequency': '1h',
+            'backup_max_copies': 48,
+            'backup_local_path': str(tmp_path / "backups"),
+            'backup_remote_repo': '',
+            'backup_remote_branch': 'backup',
+            'backup_api_key': '',
+            'auto_backup_threshold': 5,
         })()
 
         monkeypatch.setattr(config_mod, 'load_config', lambda: test_cfg)

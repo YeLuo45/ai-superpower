@@ -32,16 +32,17 @@ VALID_ENUMS = {
 # ─── Status State Machine ─────────────────────────────────────────────────────
 
 STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "intake": {"clarifying"},
+    "intake": {"clarifying", "ideation"},
+    "ideation": {"intake", "clarifying", "prd_pending_confirmation"},
     "clarifying": {"prd_pending_confirmation"},
     "prd_pending_confirmation": {"approved_for_dev"},
-    "approved_for_dev": {"in_tdd_test", "in_dev"},
+    "approved_for_dev": {"in_tdd_test", "in_dev", "in_test_acceptance", "accepted"},
     "in_tdd_test": {"in_dev"},
     "in_dev": {"in_test_acceptance", "needs_revision"},
     "in_test_acceptance": {"accepted", "test_failed"},
     "test_failed": {"in_dev"},
     "needs_revision": {"in_dev"},
-    "accepted": {"deployed"},
+    "accepted": {"deployed", "delivered"},
     "deployed": {"delivered"},
     "deploying": {"deployed"},
     "research_direction_pending": {"intake"},
@@ -50,6 +51,57 @@ STATUS_TRANSITIONS: dict[str, set[str]] = {
     "delivered": {"delivered"},
 }
 
+
+# ─── Status Derivation Rules ────────────────────────────────────────────────
+# When update_proposal() is called with business fields (stage / prd_confirmation /
+# tech_expectations / acceptance), this table maps (field, value) -> derived status.
+# The derived status is applied ONLY if the current status can transition to it
+# per STATUS_TRANSITIONS (silent skip on illegal transition — does not raise).
+# Later rules override earlier ones, so order encodes "more advanced" stages last.
+
+STATUS_DERIVE_RULES: list[tuple[str, str, str]] = [
+    # Early phase
+    ("stage", "ideation", "ideation"),
+    ("prd_confirmation", "pending", "prd_pending_confirmation"),
+    ("tech_expectations", "pending", "prd_pending_confirmation"),
+    # Approval phase
+    ("prd_confirmation", "confirmed", "approved_for_dev"),
+    ("tech_expectations", "confirmed", "approved_for_dev"),
+    ("stage", "approved_for_dev", "approved_for_dev"),
+    # Dev phase
+    ("stage", "development", "in_dev"),
+    ("stage", "in_dev", "in_dev"),
+    # Test/Accept phase
+    ("stage", "in_acceptance", "in_test_acceptance"),
+    ("stage", "in_test_acceptance", "in_test_acceptance"),
+    ("acceptance", "pending", "in_test_acceptance"),
+    # Final
+    ("acceptance", "accepted", "accepted"),
+    ("stage", "accepted", "accepted"),
+    ("acceptance", "rejected", "needs_revision"),
+    # Delivery
+    ("stage", "delivered", "delivered"),
+    ("deployment_url", "deployed", "delivered"),  # special: when URL set + accepted → delivered
+]
+
+
+def derive_status_from_fields(row: dict) -> Optional[str]:
+    """Pure helper: given a proposal row dict, return the status that
+    business fields suggest. Returns None if no rule matches.
+
+    Multiple rules can match — the LAST matching rule wins (rules are
+    ordered from least-advanced to most-advanced).
+    """
+    derived: Optional[str] = None
+    for field, value, status in STATUS_DERIVE_RULES:
+        if field == "deployment_url":
+            # Special: deployment_url is non-empty + acceptance=accepted → delivered
+            if row.get("acceptance") == "accepted" and row.get("deployment_url"):
+                derived = status
+        elif row.get(field) == value:
+            derived = status
+    return derived
+
 # ─── CSV Field Names ─────────────────────────────────────────────────────────
 
 PROJECTS_CSV_HEADERS = ["id", "name", "proposal_count", "git_repo", "local_path", "description", "last_update", "create_at", "prj_url", "sync_enabled", "sync_last_run"]
@@ -57,6 +109,7 @@ PROPOSALS_CSV_HEADERS = [
     "id", "title", "owner", "status", "project_id", "project_name", "stage",
     "prd_path", "tech_solution_path", "project_path", "git_repo", "deployment_url",
     "prd_confirmation", "tech_expectations", "acceptance", "last_update",
+    "create_at", "update_at", "project_local_path",
     "engine", "target", "game_type", "notes",
 ]
 
@@ -120,6 +173,7 @@ class ProposalCreate(BaseModel):
     target: Optional[str] = Field(default="")
     game_type: Optional[str] = Field(default="")
     notes: Optional[str] = Field(default="")
+    project_local_path: Optional[str] = Field(default="")
 
     @field_validator("project_id")
     @classmethod
@@ -153,6 +207,7 @@ class ProposalUpdate(BaseModel):
     target: Optional[str] = None
     game_type: Optional[str] = None
     notes: Optional[str] = None
+    project_local_path: Optional[str] = None
 
     @field_validator("stage")
     @classmethod
@@ -194,6 +249,9 @@ class Proposal(BaseModel):
     target: str = ""
     game_type: str = ""
     notes: str = ""
+    create_at: str = ""
+    update_at: str = ""
+    project_local_path: str = ""
 
 
 # ─── Pagination ──────────────────────────────────────────────────────────────

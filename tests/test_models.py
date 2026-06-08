@@ -122,16 +122,20 @@ class TestStatusStateMachine:
             assert status in STATUS_TRANSITIONS, f"{status} has no transition entry"
 
     def test_intake_only_goes_to_clarifying(self):
+        # intake can advance to clarifying (via update_proposal_status) OR to
+        # ideation (via business field stage=ideation in update_proposal auto-derive).
         allowed = STATUS_TRANSITIONS["intake"]
-        assert allowed == {"clarifying"}
+        assert allowed == {"clarifying", "ideation"}
 
     def test_clarifying_only_goes_to_prd_pending(self):
         allowed = STATUS_TRANSITIONS["clarifying"]
         assert allowed == {"prd_pending_confirmation"}
 
     def test_approved_for_dev_can_go_to_tdd_test_or_dev(self):
+        # approved_for_dev can also jump to in_test_acceptance or accepted
+        # when acceptance field is set via update_proposal auto-derive.
         allowed = STATUS_TRANSITIONS["approved_for_dev"]
-        assert allowed == {"in_tdd_test", "in_dev"}
+        assert allowed == {"in_tdd_test", "in_dev", "in_test_acceptance", "accepted"}
 
     def test_in_dev_allowed_transitions(self):
         allowed = STATUS_TRANSITIONS["in_dev"]
@@ -142,8 +146,10 @@ class TestStatusStateMachine:
         assert allowed == {"accepted", "test_failed"}
 
     def test_accepted_only_goes_to_deployed(self):
+        # accepted can also jump straight to delivered when deployment_url
+        # is set + acceptance=accepted (auto-derive in update_proposal).
         allowed = STATUS_TRANSITIONS["accepted"]
-        assert allowed == {"deployed"}
+        assert allowed == {"deployed", "delivered"}
 
     def test_deployed_only_goes_to_delivered(self):
         allowed = STATUS_TRANSITIONS["deployed"]

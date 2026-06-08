@@ -34,6 +34,7 @@
             <select id="sort-by" onchange="loadProposals(1)">
                 <option value="last_update">Last Update</option>
                 <option value="create_at">Create Time</option>
+                <option value="update_at">Update Time</option>
                 <option value="title">Title</option>
                 <option value="id">ID</option>
                 <option value="status">Status</option>
@@ -43,6 +44,7 @@
                 <option value="desc">↓ Desc</option>
                 <option value="asc">↑ Asc</option>
             </select>
+            <button onclick="showMergeModal()">Merge</button>
         </div>
         <div id="proposal-list">Loading...</div>
         <div id="pagination"></div>
@@ -63,6 +65,23 @@
                 <label>Game Type <input type="text" id="game_type"></label>
                 <label>Notes <textarea id="notes"></textarea></label>
                 <button type="submit">Save</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Merge Modal -->
+    <div id="merge-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeMergeModal()">&times;</span>
+            <h2>Merge Proposals by Project</h2>
+            <form id="merge-form" onsubmit="submitMergeForm(event)">
+                <label>Source Project Name <input type="text" id="source-project-name" required></label>
+                <label>Target Project ID
+                    <select id="target-project-id" required>
+                        <option value="">Loading...</option>
+                    </select>
+                </label>
+                <button type="submit">Merge</button>
             </form>
         </div>
     </div>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ai-superpower Web UI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav>
+        <a href="#" onclick="showView('dashboard')" id="nav-dashboard" class="active">Dashboard</a>
+        <a href="#" onclick="showView('projects')" id="nav-projects">Projects</a>
+        <a href="#" onclick="showView('proposals')" id="nav-proposals">Proposals</a>
+        <a href="#" onclick="showView('audit')" id="nav-audit">Audit</a>
+        <a href="#" onclick="showView('settings')" id="nav-settings">Settings</a>
+    </nav>
+    <main id="main-content"></main>
+
+    <!-- Modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">Form</h2>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Merge Modal -->
+    <div id="merge-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeMergeModal()">&times;</span>
+            <h2>Merge Proposals by Project</h2>
+            <form id="merge-form" onsubmit="submitMergeForm(event)">
+                <label>Source Project Name <input type="text" id="source-project-name" required></label>
+                <label>Target Project ID
+                    <select id="target-project-id" required>
+                        <option value="">Loading...</option>
+                    </select>
+                </label>
+                <button type="submit">Merge</button>
+            </form>
+        </div>
+    </div>
+
+    <script>window.AISP_CONFIG = window.AISP_CONFIG || {};</script>
+    <script>window.AISP_CONFIG.api_key = 'dfd37469666776457eb593e3ded692a5';</script>
+    <script src="/static/app.js"></script>
+    <script>
+    // ─── View Router ─────────────────────────────────────────────────────────
+    let currentView = 'dashboard';
+
+    function showView(name, data) {
+        currentView = name;
+        document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+        const nav = document.getElementById('nav-' + name);
+        if (nav) nav.classList.add('active');
+        const main = document.getElementById('main-content');
+        switch(name) {
+            case 'dashboard': renderDashboardView(main); break;
+            case 'projects': renderProjectsView(main); break;
+            case 'proposals': renderProposalsView(main); break;
+            case 'audit': renderAuditView(main); break;
+            case 'settings': renderSettingsView(main); break;
+        }
+    }
+
+    // ─── Dashboard View ──────────────────────────────────────────────────────
+    function renderDashboardView(main) {
+        main.innerHTML = `
+        <div class="page-header">
+            <h1>Dashboard</h1>
+            <select id="trend-days" onchange="loadDashboard()">
+                <option value="7">近 7 天</option>
+                <option value="30" selected>近 30 天</option>
+                <option value="90">近 90 天</option>
+            </select>
+        </div>
+        <div id="dashboard-error" class="dashboard-error hidden"></div>
+        <div class="stats stats-dashboard">
+            <div class="stat-card">
+                <div class="stat-value" id="project-count">—</div>
+                <div class="stat-label">项目总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="proposal-count">—</div>
+                <div class="stat-label">提案总数</div>
+            </div>
+            <div class="stat-card stat-card-today">
+                <div class="stat-value" id="today-project-count">—</div>
+                <div class="stat-label">今日新增项目</div>
+            </div>
+            <div class="stat-card stat-card-today">
+                <div class="stat-value" id="today-proposal-count">—</div>
+                <div class="stat-label">今日新增提案</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="audit-count">—</div>
+                <div class="stat-label">审计条目</div>
+            </div>
+        </div>
+        <div class="charts-grid">
+            <div class="card chart-card">
+                <h3>新建趋势</h3>
+                <canvas id="trend-chart"></canvas>
+            </div>
+            <div class="card chart-card">
+                <h3>提案状态分布</h3>
+                <canvas id="status-chart"></canvas>
+            </div>
+        </div>
+        <h2>最近活动</h2>
+        <div id="recent-activity">Loading...</div>
+        `;
+        loadDashboard();
+    }
+
+    // ─── Projects View ───────────────────────────────────────────────────────
+    function renderProjectsView(main) {
+        main.innerHTML = `
+        <div class="page-header">
+            <h1>Projects</h1>
+            <button onclick="showProjectFormSPA()">+ New Project</button>
+        </div>
+        <div class="search-bar">
+            <input type="text" id="search" placeholder="Search projects..." oninput="loadProjectsSPA(1)">
+            <select id="sort-by" onchange="loadProjectsSPA(1)">
+                <option value="last_update">Last Update</option>
+                <option value="create_at">Create Time</option>
+                <option value="name">Name</option>
+                <option value="id">ID</option>
+            </select>
+            <select id="sort-order" onchange="loadProjectsSPA(1)">
+                <option value="desc">↓ Desc</option>
+                <option value="asc">↑ Asc</option>
+            </select>
+        </div>
+        <div id="project-list">Loading...</div>
+        <div id="pagination"></div>
+        `;
+        loadProjectsSPA(1);
+    }
+
+    async function loadProjectsSPA(page) {
+        currentPage.projects = page;
+        const search = document.getElementById('search')?.value || '';
+        const sortBy = document.getElementById('sort-by')?.value || 'last_update';
+        const sortOrder = document.getElementById('sort-order')?.value || 'desc';
+        const qs = `page=${page}&page_size=20` + (search ? `&search=${encodeURIComponent(search)}` : '') + `&sort_by=${sortBy}&sort_order=${sortOrder}`;
+        try {
+            const data = await api('GET', '/projects?' + qs);
+            const el = document.getElementById('project-list');
+            if (!data.items.length) { el.innerHTML = '<p>No projects found.</p>'; }
+            else {
+                el.innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Proposals</th><th>Git Repo</th><th>PRJ URL</th><th>Create At</th><th>Last Update</th><th></th><th></th></tr></thead><tbody>
+                    ${data.items.map(p => `<tr>
+                        <td>${p.id}</td><td>${esc(p.name)}</td><td>${p.proposal_count}</td>
+                        <td>${p.git_repo ? `<a href="${esc(p.git_repo)}" target="_blank">${esc(p.git_repo)}</a>` : '—'}</td>
+                        <td>${p.prj_url ? `<a href="${esc(p.prj_url)}" target="_blank">${esc(p.prj_url)}</a>` : '—'}</td>
+                        <td>${p.create_at || '—'}</td><td>${p.last_update}</td>
+                        <td><button onclick="showProjectFormSPA('${p.id}')">Edit</button></td>
+                        <td><button onclick="deleteProject('${p.id}')" style="color:#f87171">Del</button></td>
+                    </tr>`).join('')}
+                </tbody></table>`;
+            }
+            renderPaginationSPA('pagination', page, data.total, 20, loadProjectsSPA);
+        } catch (e) { document.getElementById('project-list').textContent = 'Error: ' + e.message; }
+    }
+
+    function showProjectFormSPA(id) {
+        const title = id ? 'Edit Project' : 'New Project';
+        document.getElementById('modal-title').textContent = title;
+        document.getElementById('modal-body').innerHTML = `
+            <form onsubmit="submitProjectFormSPA(event)">
+                <input type="hidden" id="project-id" value="${id || ''}">
+                <label>Name <input type="text" id="name" required></label>
+                <label>Git Repo <input type="text" id="git_repo"></label>
+                <label>PRJ URL <input type="text" id="prj_url" placeholder="https://user.github.io/project/"></label>
+                <label>Local Path <input type="text" id="local_path"></label>
+                <label>Description <textarea id="description"></textarea></label>
+                <button type="submit">Save</button>
+                ${!id ? '<button type="button" onclick="checkDuplicateProject()">Check Duplicate</button>' : ''}
+            </form>
+        `;
+        if (id) {
+            api('GET', '/projects/' + id).then(p => {
+                document.getElementById('name').value = p.name || '';
+                document.getElementById('git_repo').value = p.git_repo || '';
+                document.getElementById('prj_url').value = p.prj_url || '';
+                document.getElementById('local_path').value = p.local_path || '';
+                document.getElementById('description').value = p.description || '';
+            });
+        }
+        document.getElementById('modal').classList.remove('hidden');
+    }
+
+    async function submitProjectFormSPA(e) {
+        e.preventDefault();
+        const id = document.getElementById('project-id').value;
+        const body = {
+            name: document.getElementById('name').value,
+            git_repo: document.getElementById('git_repo').value,
+            prj_url: document.getElementById('prj_url').value,
+            local_path: document.getElementById('local_path').value,
+            description: document.getElementById('description').value,
+        };
+        try {
+            if (id) await api('PUT', '/projects/' + id, body);
+            else await api('POST', '/projects', body);
+            closeModal();
+            loadProjectsSPA(currentPage.projects);
+        } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    function renderPaginationSPA(elId, page, total, pageSize, loadFn) {
+        const totalPages = Math.ceil(total / pageSize);
+        const el = document.getElementById(elId);
+        if (!el || totalPages <= 1) { if (el) el.innerHTML = ''; return; }
+        let html = '';
+        if (page > 1) html += `<button onclick="(${loadFn.name})(${page-1})">← Prev</button>`;
+        html += `<span style="padding:0.4rem 0.8rem">${page} / ${totalPages}</span>`;
+        if (page < totalPages) html += `<button onclick="(${loadFn.name})(${page+1})">Next →</button>`;
+        el.innerHTML = html;
+    }
+
+    // ─── Proposals View ──────────────────────────────────────────────────────
+    let currentProposalPage = 1;
+
+    function renderProposalsView(main) {
+        main.innerHTML = `
+        <div class="page-header">
+            <h1>Proposals</h1>
+            <button onclick="showProposalFormSPA()">+ New Proposal</button>
+        </div>
+        <div class="filters">
+            <input type="text" id="search" placeholder="Search..." oninput="loadProposalsSPA(1)">
+            <select id="status-filter" onchange="loadProposalsSPA(1)">
+                <option value="">All Status</option>
+                <option value="intake">intake</option>
+                <option value="clarifying">clarifying</option>
+                <option value="prd_pending_confirmation">prd_pending_confirmation</option>
+                <option value="approved_for_dev">approved_for_dev</option>
+                <option value="in_dev">in_dev</option>
+                <option value="accepted">accepted</option>
+                <option value="deployed">deployed</option>
+            </select>
+            <select id="sort-by" onchange="loadProposalsSPA(1)">
+                <option value="last_update">Last Update</option>
+                <option value="create_at">Create Time</option>
+                <option value="update_at">Update Time</option>
+                <option value="title">Title</option>
+                <option value="id">ID</option>
+                <option value="status">Status</option>
+                <option value="stage">Stage</option>
+            </select>
+            <select id="sort-order" onchange="loadProposalsSPA(1)">
+                <option value="desc">↓ Desc</option>
+                <option value="asc">↑ Asc</option>
+            </select>
+            <button onclick="showMergeModalSPA()">Merge</button>
+        </div>
+        <div id="proposal-list">Loading...</div>
+        <div id="pagination"></div>
+        `;
+        loadProposalsSPA(1);
+    }
+
+    async function loadProposalsSPA(page) {
+        currentProposalPage = page;
+        const search = document.getElementById('search')?.value || '';
+        const status = document.getElementById('status-filter')?.value || '';
+        const sortBy = document.getElementById('sort-by')?.value || 'last_update';
+        const sortOrder = document.getElementById('sort-order')?.value || 'desc';
+        const qs = `page=${page}&page_size=20` +
+            (search ? `&search=${encodeURIComponent(search)}` : '') +
+            (status ? `&status=${encodeURIComponent(status)}` : '') +
+            `&sort_by=${sortBy}&sort_order=${sortOrder}`;
+        try {
+            const data = await api('GET', '/proposals?' + qs);
+            const el = document.getElementById('proposal-list');
+            if (!data.items.length) { el.innerHTML = '<p>No proposals found.</p>'; }
+            else {
+                el.innerHTML = `<table><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Stage</th><th>Owner</th><th>Project</th><th>Created</th><th>Updated</th><th></th><th></th></tr></thead><tbody>
+                    ${data.items.map(p => `<tr>
+                        <td>${p.id}</td><td>${esc(p.title)}</td>
+                        <td><span class="badge badge-${esc(p.status)}">${p.status}</span></td>
+                        <td>${p.stage || '—'}</td><td>${p.owner || '—'}</td><td>${p.project_id}</td>
+                        <td>${p.create_at ? p.create_at.slice(5,10) : '—'}</td>
+                        <td>${p.update_at ? p.update_at.slice(5,10) : '—'}</td>
+                        <td><button onclick="showProposalFormSPA('${p.id}')">Edit</button></td>
+                        <td><button onclick="deleteProposal('${p.id}')" style="color:#f87171">Del</button></td>
+                    </tr>`).join('')}
+                </tbody></table>`;
+            }
+            renderPaginationSPA('pagination', page, data.total, 20, loadProposalsSPA);
+        } catch (e) { document.getElementById('proposal-list').textContent = 'Error: ' + e.message; }
+    }
+
+    function showProposalFormSPA(id) {
+        const title = id ? 'Edit Proposal' : 'New Proposal';
+        document.getElementById('modal-title').textContent = title;
+        document.getElementById('modal-body').innerHTML = `
+            <form onsubmit="submitProposalFormSPA(event)">
+                <input type="hidden" id="proposal-id" value="${id || ''}">
+                <label>Title <input type="text" id="title" required></label>
+                <label>Project ID <input type="text" id="project_id" required></label>
+                <label>Owner <input type="text" id="owner"></label>
+                <label>Stage <select id="stage"><option value="">—</option><option value="ideation">ideation</option><option value="prototype">prototype</option><option value="alpha">alpha</option><option value="beta">beta</option><option value="launch">launch</option><option value="operate">operate</option></select></label>
+                <label>Engine <input type="text" id="engine"></label>
+                <label>Target <input type="text" id="target"></label>
+                <label>Game Type <input type="text" id="game_type"></label>
+                <label>Notes <textarea id="notes"></textarea></label>
+                <button type="submit">Save</button>
+            </form>
+        `;
+        if (id) {
+            api('GET', '/proposals/' + id).then(p => {
+                document.getElementById('title').value = p.title || '';
+                document.getElementById('project_id').value = p.project_id || '';
+                document.getElementById('owner').value = p.owner || '';
+                document.getElementById('stage').value = p.stage || '';
+                document.getElementById('engine').value = p.engine || '';
+                document.getElementById('target').value = p.target || '';
+                document.getElementById('game_type').value = p.game_type || '';
+                document.getElementById('notes').value = p.notes || '';
+            });
+        }
+        document.getElementById('modal').classList.remove('hidden');
+    }
+
+    async function submitProposalFormSPA(e) {
+        e.preventDefault();
+        const id = document.getElementById('proposal-id').value;
+        const body = {
+            title: document.getElementById('title').value,
+            project_id: document.getElementById('project_id').value,
+            owner: document.getElementById('owner').value,
+            stage: document.getElementById('stage').value,
+            engine: document.getElementById('engine').value,
+            target: document.getElementById('target').value,
+            game_type: document.getElementById('game_type').value,
+            notes: document.getElementById('notes').value,
+        };
+        try {
+            if (id) await api('PUT', '/proposals/' + id + '/fields', body);
+            else await api('POST', '/proposals', body);
+            closeModal();
+            loadProposalsSPA(currentProposalPage);
+        } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    async function showMergeModalSPA() {
+        document.getElementById('merge-modal').classList.remove('hidden');
+        try {
+            const data = await api('GET', '/projects?page_size=200');
+            const sel = document.getElementById('target-project-id');
+            sel.innerHTML = data.items.map(p => `<option value="${p.id}">${p.id} - ${p.name}</option>`).join('');
+        } catch (e) { alert('Error loading projects: ' + e.message); }
+    }
+
+    function closeMergeModalSPA() {
+        document.getElementById('merge-modal').classList.add('hidden');
+    }
+
+    async function submitMergeForm(e) {
+        e.preventDefault();
+        const sourceName = document.getElementById('source-project-name').value;
+        const targetId = document.getElementById('target-project-id').value;
+        try {
+            const result = await api('POST', '/proposals/merge-by-project', {
+                source_project_name: sourceName,
+                target_project_id: targetId,
+            });
+            alert('Merge done: ' + (result.message || JSON.stringify(result)));
+            closeMergeModalSPA();
+            loadProposalsSPA(currentProposalPage);
+        } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    // ─── Audit View ─────────────────────────────────────────────────────────
+    function renderAuditView(main) {
+        main.innerHTML = `
+        <h1>Audit Log</h1>
+        <div id="audit-list">Loading...</div>
+        <div id="pagination"></div>
+        `;
+        loadAuditSPA(1);
+    }
+
+    async function loadAuditSPA(page) {
+        currentPage.audit = page;
+        try {
+            const data = await api('GET', `/audit?page=${page}&page_size=50`);
+            const el = document.getElementById('audit-list');
+            if (!data.items.length) { el.innerHTML = '<p>No audit entries.</p>'; }
+            else {
+                el.innerHTML = `<table><thead><tr><th>Time</th><th>Op</th><th>Entity</th><th>ID</th><th>Field</th><th>Old</th><th>New</th><th>Actor</th></tr></thead><tbody>
+                    ${data.items.map(e => `<tr>
+                        <td>${e.ts ? e.ts.slice(0,19) : '-'}</td>
+                        <td><span class="op">${e.op}</span></td>
+                        <td>${e.entity}</td>
+                        <td>${e.id}</td>
+                        <td>${e.field || '-'}</td>
+                        <td style="color:#f87171;text-decoration:line-through">${e.old ?? '-'}</td>
+                        <td style="color:#4ade80">${e.new ?? '-'}</td>
+                        <td><code>${e.actor || '-'}</code></td>
+                    </tr>`).join('')}
+                </tbody></table>`;
+            }
+            renderPaginationSPA('pagination', page, data.total, 50, loadAuditSPA);
+        } catch (e) { document.getElementById('audit-list').textContent = 'Error: ' + e.message; }
+    }
+
+    // ─── Settings View ───────────────────────────────────────────────────────
+    function renderSettingsView(main) {
+        main.innerHTML = `
+        <h1>Settings</h1>
+        <div class="card">
+            <h3>API Configuration</h3>
+            <p>API Key: <code id="api-key-display">••••••••</code> <button onclick="showApiKeySPA()">Show</button></p>
+        </div>
+        <div class="card">
+            <h3>Backup</h3>
+            <button onclick="runBackupSPA()">Run Backup Now</button>
+            <pre id="backup-output"></pre>
+        </div>
+        <div class="card">
+            <h3>Sync Configuration</h3>
+            <div class="form-group">
+                <label>GitHub PAT:</label>
+                <input type="password" id="sync-api-key" placeholder="ghp_..." style="width:300px">
+            </div>
+            <div class="form-group">
+                <label>GitHub Pages Target Repo:</label>
+                <input type="text" id="sync-pages-repo" value="YeLuo45/ai-superpower" style="width:300px">
+            </div>
+            <div class="form-group">
+                <label>prj-proposals-manager Repo:</label>
+                <input type="text" id="sync-prj-repo" value="YeLuo45/prj-proposals-manager" style="width:300px">
+            </div>
+            <div class="form-group">
+                <label>Sync Frequency:</label>
+                <select id="sync-frequency">
+                    <option value="off">Off</option>
+                    <option value="1h">1 hour</option>
+                    <option value="6h">6 hours</option>
+                    <option value="12h">12 hours</option>
+                    <option value="1d">1 day</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Last Run:</label>
+                <span id="sync-last-run">—</span>
+            </div>
+            <div style="margin-top:0.8rem">
+                <button onclick="saveSyncConfigSPA()" style="background:#4ade80;color:#000">Save Config</button>
+                <button onclick="runSyncNowSPA()" style="background:#60a5fa">Sync Now</button>
+            </div>
+            <pre id="sync-output"></pre>
+        </div>
+        `;
+        loadSyncConfigSPA();
+    }
+
+    function showApiKeySPA() {
+        initApiKey();
+        document.getElementById('api-key-display').textContent = apiKey || AISP_CONFIG.api_key || 'not set';
+    }
+
+    async function runBackupSPA() {
+        const out = document.getElementById('backup-output');
+        out.textContent = 'Backup: configure in config.toml [backup] section.';
+    }
+
+    async function loadSyncConfigSPA() {
+        const out = document.getElementById('sync-output');
+        out.textContent = 'Loading...';
+        try {
+            const cfg = await api('GET', '/sync/config');
+            document.getElementById('sync-pages-repo').value = cfg.sync_target_repo || 'YeLuo45/ai-superpower';
+            try {
+                const status = await api('GET', '/sync/status');
+                document.getElementById('sync-prj-repo').value = status.sync_prj_repo || 'YeLuo45/prj-proposals-manager';
+                const freqMap = { 60: '1h', 360: '6h', 720: '12h', 1440: '1d', 0: 'off' };
+                document.getElementById('sync-frequency').value = freqMap[status.sync_interval_minutes] || 'off';
+                document.getElementById('sync-last-run').textContent = status.sync_last_run || '—';
+            } catch {}
+            out.textContent = 'Loaded.';
+            setTimeout(() => { if (out.textContent === 'Loaded.') out.textContent = ''; }, 2000);
+        } catch (e) { out.textContent = 'Error: ' + e.message; }
+    }
+
+    async function saveSyncConfigSPA() {
+        const out = document.getElementById('sync-output');
+        out.textContent = 'Saving...';
+        try {
+            const pagesRepo = document.getElementById('sync-pages-repo')?.value || '';
+            const prjRepo = document.getElementById('sync-prj-repo')?.value || '';
+            const freq = document.getElementById('sync-frequency')?.value || 'off';
+            const apiKeyVal = document.getElementById('sync-api-key')?.value || '';
+            await api('PUT', '/sync/config', { sync_target_repo: pagesRepo, sync_enabled: freq !== 'off' });
+            await api('POST', '/sync/config', { sync_frequency: freq, sync_prj_repo: prjRepo, sync_api_key: apiKeyVal });
+            out.textContent = 'Saved. Reload page to reflect changes.';
+            setTimeout(() => { if (out.textContent.startsWith('Saved.')) out.textContent = ''; }, 3000);
+        } catch (e) { out.textContent = 'Error: ' + e.message; }
+    }
+
+    async function runSyncNowSPA() {
+        const out = document.getElementById('sync-output');
+        out.textContent = 'Syncing...';
+        try {
+            const result = await api('POST', '/sync/export', {});
+            if (result.status === 'accepted' || result.status === 'done') {
+                out.textContent = `Done. Exported ${result.proposals_count} proposals, ${result.projects_count} projects.\nFiles: ${result.files_created}\nLast run: ${result.export_last_run}`;
+            } else {
+                out.textContent = `Status: ${result.status}\n${result.message || ''}`;
+            }
+        } catch (e) { out.textContent = 'Error: ' + e.message; }
+    }
+
+    // ─── Init ────────────────────────────────────────────────────────────────
+    showView('dashboard');
+
+    // Close modal on outside click
+    document.addEventListener('click', e => {
+        if (e.target.classList.contains('modal') && e.target.id !== 'merge-modal') closeModal();
+    });
+    </script>
+</body>
+</html>
