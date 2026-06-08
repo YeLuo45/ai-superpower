@@ -85,6 +85,19 @@ _export_last_run: str = ""
 # Static / templates (set up after startup)
 _templates: Optional[Jinja2Templates] = None
 
+# Mount MCP server (Streamable HTTP) at /mcp
+# This lets consumers (browsers, remote agents) connect to MCP via HTTP+SSE
+# alongside the existing Web UI and (legacy) /api/* REST endpoints.
+try:
+    from ai_superpower.mcp_server import make_asgi_app as _make_mcp_app
+    _mcp_app = _make_mcp_app()
+    app.mount("/mcp", _mcp_app)
+except Exception as _mcp_err:
+    # MCP optional — log and continue if not importable
+    import warnings
+    warnings.warn(f"MCP server not mounted: {_mcp_err}")
+    _mcp_app = None
+
 
 @app.on_event("startup")
 def startup():

@@ -303,6 +303,19 @@ def cmd_tui(args):
     curses.wrapper(tui_main)
 
 
+def cmd_mcp(args):
+    """Start the MCP server (stdio or Streamable HTTP)."""
+    from ai_superpower.mcp_server import main_stdio, main_http
+    if args.transport == "stdio":
+        main_stdio()
+    elif args.transport == "http":
+        host = args.host or "0.0.0.0"
+        port = args.port or 8000
+        main_http(host=host, port=port)
+    else:
+        raise ValueError(f"Unknown transport: {args.transport}")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="aisp", description="aisp (ai-superpower) API CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -424,6 +437,14 @@ def main():
     # tui
     p_tui = subparsers.add_parser("tui", help="Launch interactive TUI")
     p_tui.set_defaults(func=cmd_tui)
+
+    # mcp
+    p_mcp = subparsers.add_parser("mcp", help="Start MCP server (stdio or Streamable HTTP)")
+    p_mcp.add_argument("--transport", choices=["stdio", "http"], default="stdio",
+                        help="Transport type: stdio (default) or http")
+    p_mcp.add_argument("--host", default=None, help="[http] Bind host (default: 0.0.0.0)")
+    p_mcp.add_argument("--port", type=int, default=None, help="[http] Bind port (default: 8000)")
+    p_mcp.set_defaults(func=cmd_mcp)
 
     # replay
     p_replay = subparsers.add_parser("replay", help="Replay audit log entries")
