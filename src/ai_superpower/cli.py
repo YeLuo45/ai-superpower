@@ -310,7 +310,7 @@ def cmd_mcp(args):
         main_stdio()
     elif args.transport == "http":
         host = args.host or "0.0.0.0"
-        port = args.port or 8000
+        port = args.port or 8765
         main_http(host=host, port=port)
     else:
         raise ValueError(f"Unknown transport: {args.transport}")
@@ -443,7 +443,7 @@ def main():
     p_mcp.add_argument("--transport", choices=["stdio", "http"], default="stdio",
                         help="Transport type: stdio (default) or http")
     p_mcp.add_argument("--host", default=None, help="[http] Bind host (default: 0.0.0.0)")
-    p_mcp.add_argument("--port", type=int, default=None, help="[http] Bind port (default: 8000)")
+    p_mcp.add_argument("--port", type=int, default=None, help="[http] Bind port (default: 8765 to avoid collision with 'aisp run' on 8000)")
     p_mcp.set_defaults(func=cmd_mcp)
 
     # replay
