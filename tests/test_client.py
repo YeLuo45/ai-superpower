@@ -82,10 +82,16 @@ def mock_socket(monkeypatch, tmp_path):
         proposals_csv = str(tmp_path / "pr.csv")
         audit_log = str(tmp_path / "audit.log")
 
-    # Patch config loading
+    # Patch config loading.
+    # client.py uses `from .config import load_config`, which binds the name
+    # into client module's globals at import time. Patching config_mod only
+    # would not affect the already-bound reference inside client.
     from ai_superpower import config as config_mod
-    orig_load = config_mod.load_config
+    from ai_superpower import client as client_mod
+    orig_load_cfg = config_mod.load_config
+    orig_load_cli = client_mod.load_config
     monkeypatch.setattr(config_mod, "load_config", lambda: FakeConfig())
+    monkeypatch.setattr(client_mod, "load_config", lambda: FakeConfig())
 
     def queue_response(http_string: str):
         state["queue"].append(http_string)

@@ -375,7 +375,7 @@ class CSVStorage:
             filtered = [r for r in filtered if search_lower in r.get("title", "").lower()]
 
         # Sort
-        valid_sort_keys = ["last_update", "create_at", "title", "id", "status", "stage"]
+        valid_sort_keys = ["last_update", "create_at", "update_at", "title", "id", "status", "stage"]
         sort_field = sort_by if sort_by in valid_sort_keys else "last_update"
         reverse = sort_order == "desc"
         filtered.sort(key=lambda r: r.get(sort_field, ""), reverse=reverse)
@@ -433,9 +433,23 @@ class CSVStorage:
         new_row["id"] = new_id
         new_row["status"] = "intake"
         new_row["last_update"] = today
+        # Timestamps (V5 B4): ISO8601 UTC with Z suffix
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        new_row["create_at"] = now_iso
+        new_row["update_at"] = now_iso
         for key, value in data.items():
             if key in PROPOSALS_CSV_HEADERS and value is not None:
                 new_row[key] = str(value)
+
+        # Auto-fill project_local_path from project's local_path if not explicitly set
+        if not new_row.get("project_local_path"):
+            with self._lock_file(self.config.projects_csv, "shared"):
+                with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
+                    reader = csv.DictReader(f)
+                    for prow in reader:
+                        if prow.get("id") == new_row.get("project_id", ""):
+                            new_row["project_local_path"] = prow.get("local_path", "")
+                            break
 
         project_map = {}
         with self._lock_file(self.config.projects_csv, "shared"):
@@ -461,6 +475,79 @@ class CSVStorage:
         self._auto_backup_if_needed(new_row.get("project_id", ""))
 
         return Proposal(**new_row)
+
+    def merge_proposals_by_project(
+        self,
+        target_project_id: str,
+        source_project_name: str,
+    ) -> dict:
+        """Merge proposals from a source project (matched by name, case-insensitive)
+        into a target project. Only proposals with status in
+        {active, archived} are merged — intake / in-progress proposals stay where
+        they are.
+
+        Returns:
+            {"merged_count": int, "merged_ids": [str, ...]}
+
+        Raises:
+            ValueError if target_project_id does not exist.
+        """
+        target = self.get_project(target_project_id)
+        if target is None:
+            raise ValueError(f"Target project not found: {target_project_id}")
+
+        target_name_lower = (source_project_name or "").strip().lower()
+
+        # Find source project by case-insensitive name match
+        with self._lock_file(self.config.projects_csv, "shared"):
+            with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                source_project_id = None
+                for row in reader:
+                    if (row.get("name") or "").strip().lower() == target_name_lower:
+                        source_project_id = row.get("id")
+                        break
+
+        if source_project_id is None:
+            return {"merged_count": 0, "merged_ids": []}
+
+        # Update proposals: project_id = target_project_id, where project_id =
+        # source_project_id AND status IN {active, archived}
+        with self._lock_file(self.config.proposals_csv, "shared"):
+            with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+
+        merged_ids = []
+        today = datetime.now().strftime("%Y-%m-%d")
+        for row in rows:
+            if (row.get("project_id") == source_project_id
+                    and row.get("status") in ("active", "archived")):
+                row["project_id"] = target_project_id
+                row["last_update"] = today
+                merged_ids.append(row["id"])
+
+        with self._lock_file(self.config.proposals_csv, "exclusive"):
+            sha_before = self._sha256(self.config.proposals_csv)
+            with open(self.config.proposals_csv, "w", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=PROPOSALS_CSV_HEADERS)
+                writer.writeheader()
+                writer.writerows(rows)
+            sha_after = self._sha256(self.config.proposals_csv)
+
+        # Field-level audit per merged proposal
+        for pid in merged_ids:
+            self._audit(
+                "UPDATE", "proposal", pid,
+                field="project_id", old=source_project_id, new=target_project_id,
+                checksum_after=sha_after,
+            )
+
+        # Sync proposal_count on both projects
+        self._sync_project_proposal_count(source_project_id)
+        self._sync_project_proposal_count(target_project_id)
+
+        return {"merged_count": len(merged_ids), "merged_ids": merged_ids}
 
     def update_proposal(self, proposal_id: str, updates: dict) -> Optional[Proposal]:
         """Update proposal fields (partial update, field-level audit).
@@ -489,6 +576,7 @@ class CSVStorage:
             return None
 
         today = datetime.now().strftime("%Y-%m-%d")
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         old_values = {}
         for key, value in updates.items():
             if key == "id" or value is None:
@@ -497,6 +585,9 @@ class CSVStorage:
                 old_values[key] = rows[target_idx].get(key, "")
                 rows[target_idx][key] = str(value)
         rows[target_idx]["last_update"] = today
+        # V5 B4: bump update_at on every update; create_at is preserved.
+        # project_local_path is also preserved unless explicitly included in updates.
+        rows[target_idx]["update_at"] = now_iso
 
         # ─── Auto-derive status from business field changes ───
         # Skip if user explicitly set status in this update — they own the choice.

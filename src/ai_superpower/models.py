@@ -109,6 +109,7 @@ PROPOSALS_CSV_HEADERS = [
     "id", "title", "owner", "status", "project_id", "project_name", "stage",
     "prd_path", "tech_solution_path", "project_path", "git_repo", "deployment_url",
     "prd_confirmation", "tech_expectations", "acceptance", "last_update",
+    "create_at", "update_at", "project_local_path",
     "engine", "target", "game_type", "notes",
 ]
 
@@ -172,6 +173,7 @@ class ProposalCreate(BaseModel):
     target: Optional[str] = Field(default="")
     game_type: Optional[str] = Field(default="")
     notes: Optional[str] = Field(default="")
+    project_local_path: Optional[str] = Field(default="")
 
     @field_validator("project_id")
     @classmethod
@@ -205,6 +207,7 @@ class ProposalUpdate(BaseModel):
     target: Optional[str] = None
     game_type: Optional[str] = None
     notes: Optional[str] = None
+    project_local_path: Optional[str] = None
 
     @field_validator("stage")
     @classmethod
@@ -246,6 +249,9 @@ class Proposal(BaseModel):
     target: str = ""
     game_type: str = ""
     notes: str = ""
+    create_at: str = ""
+    update_at: str = ""
+    project_local_path: str = ""
 
 
 # ─── Pagination ──────────────────────────────────────────────────────────────
