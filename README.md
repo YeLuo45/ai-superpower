@@ -65,6 +65,7 @@ API write (required)       →  Pydantic校验 + 状态机 + flock锁 + SHA256�
 | **Web UI** | FastAPI + Jinja2 — project/proposal management, audit viewer, settings |
 | **Replay / Undo** | Field-level rollback from JSON audit log — dry-run by default |
 | **Scheduled Backup** | APScheduler — hourly local + optional Git remote push, max 48 copies |
+| **MCP server (NEW)** | 20 tools exposing projects/proposals/audit/sync — stdio + Streamable HTTP transports |
 
 ---
 
@@ -181,6 +182,95 @@ ai-superpower tui
 
 Full-screen interactive interface: browse projects/proposals, search, create, update status, view audit log.
 
+### 4. MCP (Model Context Protocol)
+
+ai-superpower ships with a built-in **MCP server** that exposes 20 tools (19 main + 1 auth helper) covering the full CRUD surface, audit log, stats, and sync. Two transports are supported:
+
+- **stdio** — for local AI agents and CLI integrations (subprocess / JSON-RPC)
+- **Streamable HTTP** — for browsers and remote consumers, mounted at `/mcp` on the FastAPI app
+
+#### Start the MCP server (stdio)
+
+```bash
+# Set the API key in env (same key as ~/.ai-superpower/config.toml [api].key)
+export AI_SUPERPOWER_API_KEY="<your-32-char-hex-key>"
+
+# Start the stdio MCP server (blocks, reads JSON-RPC from stdin)
+ai-superpower mcp --transport=stdio
+```
+
+Quick smoke test — initialize and list tools over stdio (full handshake):
+
+```bash
+# 1) Initialize
+{ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0.0.1"}}}'; \
+  sleep 0.2; \
+  echo '{"jsonrpc":"2.0","method":"notifications/initialized"}'; \
+  sleep 0.2; \
+  echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'; \
+  sleep 0.5; } \
+  | ai-superpower mcp --transport=stdio
+# → server returns 20 tools (set_api_key + 19 main)
+```
+
+#### Start the MCP server (Streamable HTTP)
+
+```bash
+# Start the MCP HTTP server on port 8765 (avoid 8000/8001 — reserved for ai-superpower run)
+ai-superpower mcp --transport=http --host 127.0.0.1 --port 8765
+# Server listens at http://127.0.0.1:8765/mcp
+```
+
+Quick smoke test — initialize + list tools:
+
+```bash
+# 1) Initialize
+curl -X POST http://127.0.0.1:8765/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+
+# 2) tools/list (use the mcp-session-id returned from step 1)
+curl -X POST http://127.0.0.1:8765/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "mcp-session-id: <id-from-step-1>" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+```
+
+#### Use the MCP server alongside the Web UI
+
+The MCP HTTP endpoint is also mounted on the main FastAPI app at `/mcp`. So you can run `ai-superpower run` (which starts the Web UI + REST API on port 8000) and the MCP HTTP server becomes available at the same port automatically:
+
+```bash
+ai-superpower run --port 8000
+# Web UI:     http://localhost:8000/
+# REST API:   http://localhost:8000/api/*  (legacy)
+# MCP HTTP:   http://localhost:8000/mcp    (new)
+```
+
+> The legacy `/api/*` REST endpoints are still mounted for the Web UI and existing integrations; future iterations will migrate the Web UI to MCP and remove the REST surface.
+
+#### MCP tools reference
+
+| Tool | Purpose |
+|------|---------|
+| `set_api_key` | Set the API key in env var (stdio auth bootstrap) |
+| `list_projects` / `get_project` / `create_project` / `update_project` / `delete_project` | Project CRUD |
+| `check_project_duplicate` | Pre-flight duplicate check by name or git_repo |
+| `list_proposals` / `get_proposal` / `create_proposal` | Proposal CRUD (read + create) |
+| `update_proposal_status` | Status transitions (state machine enforced) |
+| `update_proposal_fields` | Partial field update |
+| `delete_proposal` | Delete (requires `allow_delete=true`) |
+| `merge_proposals_by_project` | Bulk move proposals by source project name |
+| `get_audit` | Audit log query (page + filter) |
+| `get_stats` | Aggregate statistics (projects/proposals/audit counts) |
+| `get_sync_config` / `update_sync_config` | Sync configuration read/write |
+| `export_sync` | Trigger GitHub Pages sync export |
+| `get_sync_status` | Sync enabled / last-run / target repo |
+
+All tools require authentication. Pass `api_key` as a tool argument (stdio) or `X-API-Key` header (HTTP).
+
 ---
 
 ## Installation
@@ -260,13 +350,16 @@ Start `ai-superpower run` then open `http://localhost:8000`:
 ## Testing
 
 ```bash
-# Run full test suite (107 tests)
+# Run full test suite (465+ tests across 16 test files)
 python3 -m pytest tests/ -v
 
 # Run specific test file
 python3 -m pytest tests/test_api.py -v
 python3 -m pytest tests/test_storage.py -v
 python3 -m pytest tests/test_models.py -v
+
+# Run MCP tests with coverage (target: 100% on mcp_server.py)
+python3 -m pytest tests/test_mcp_server.py -v --cov=ai_superpower.mcp_server --cov-report=term-missing
 ```
 
 ---
@@ -314,7 +407,8 @@ ai-superpower/
 │   ├── storage.py       # CSVStorage: flock + JSON audit + validation
 │   ├── server.py        # FastAPI server (9 endpoints + Web UI)
 │   ├── client.py        # APIClient: Unix socket HTTP client
-│   ├── cli.py           # CLI entry point (project/proposal/audit/replay/backup)
+│   ├── cli.py           # CLI entry point (project/proposal/audit/replay/backup/mcp)
+│   ├── mcp_server.py    # MCP server: 20 tools, stdio + Streamable HTTP
 │   ├── tui.py           # Curses TUI (interactive management)
 │   ├── replay.py        # Audit log replay / field-level undo
 │   ├── backup.py        # BackupScheduler: local + Git remote
@@ -329,16 +423,4 @@ ai-superpower/
 │   ├── ai-superpower.service  # systemd unit
 │   └── install.sh             # installer
 └── pyproject.toml
-```
-
-## Testing
-
-```bash
-# Run full test suite (117 tests)
-python3 -m pytest tests/ -v
-
-# Run specific test file
-python3 -m pytest tests/test_api.py -v
-python3 -m pytest tests/test_storage.py -v
-python3 -m pytest tests/test_models.py -v
 ```
