@@ -88,6 +88,11 @@ _templates: Optional[Jinja2Templates] = None
 # Mount MCP server (Streamable HTTP) at /mcp
 # This lets consumers (browsers, remote agents) connect to MCP via HTTP+SSE
 # alongside the existing Web UI and (legacy) /api/* REST endpoints.
+#
+# IMPORTANT: FastAPI doesn't propagate mounted sub-app lifespans, so the
+# inner StreamableHTTP session manager is started lazily in the FIRST
+# /mcp request handler instead of in lifespan. This avoids breaking
+# test fixtures that create multiple TestClient instances back-to-back.
 try:
     from ai_superpower.mcp_server import make_asgi_app as _make_mcp_app
     _mcp_app = _make_mcp_app()

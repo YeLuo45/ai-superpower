@@ -20,8 +20,10 @@ from mcp.server.fastmcp import FastMCP
 from .config import APIConfig, CONFIG_PATH
 from .storage import CSVStorage
 
-# Single shared FastMCP instance — all 19 tools registered as decorators below
-mcp = FastMCP("ai-superpower", instructions="Proposal/project management + audit + sync")
+# Single shared FastMCP instance — all 19 tools registered as decorators below.
+# streamable_http_path="/" lets the FastAPI mount at /mcp result in a clean
+# /mcp endpoint (instead of the default /mcp/mcp from path concatenation).
+mcp = FastMCP("ai-superpower", instructions="Proposal/project management + audit + sync", streamable_http_path="/")
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -447,8 +449,33 @@ def get_sync_status(api_key: Optional[str] = None) -> dict:
 # ─── ASGI app factory (for FastAPI mount) ─────────────────────────────────────
 
 def make_asgi_app() -> "Starlette":
-    """Return the ASGI app for Streamable HTTP transport (mount at /mcp)."""
-    return mcp.streamable_http_app()
+    """Return the ASGI app for Streamable HTTP transport (mount at /mcp).
+
+    Wraps FastMCP's streamable_http_app() with an additional lifespan that
+    manually runs the session manager. This is required when the app is
+    mounted as a sub-app of a parent FastAPI/Starlette app — without the
+    explicit lifespan, the parent never triggers the inner session manager
+    and the first request fails with "Task group is not initialized".
+    """
+    from contextlib import asynccontextmanager
+    from starlette.applications import Starlette
+
+    inner = mcp.streamable_http_app()
+    # Ensure the session manager exists (streamable_http_app is supposed to
+    # lazily create it, but when called as a sub-app the lifespan may not
+    # run — force initialization up front).
+    if mcp._session_manager is None:  # pragma: no cover
+        _ = mcp.session_manager
+
+    @asynccontextmanager
+    async def combined_lifespan(app):
+        # Run the inner session manager in a background task group
+        async with mcp._session_manager.run():
+            yield
+
+    # Replace the lifespan on the inner app with our combined one
+    inner.router.lifespan_context = combined_lifespan
+    return inner
 
 
 def main_stdio() -> None:

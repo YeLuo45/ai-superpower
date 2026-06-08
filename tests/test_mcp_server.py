@@ -830,8 +830,8 @@ class TestHttpTransport:
 
         app = make_asgi_app()
         with TestClient(app) as client:
-            # Initialize MCP session at /mcp
-            resp = client.post("/mcp", json={
+            # Initialize MCP session at root (since streamable_http_path="/")
+            resp = client.post("/", json={
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/list",
