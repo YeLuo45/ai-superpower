@@ -63,6 +63,23 @@ class TestProjectCrud:
         assert proj.name == "New Project"
         assert proj.git_repo == "https://github.com/test/test"
 
+    def test_find_project_by_exact_name(self, storage):
+        """Case-sensitive exact match (boss preference 2026-06-10)."""
+        storage.create_project(name="PixelPal")
+        # Exact match
+        found = storage.find_project_by_exact_name("PixelPal")
+        assert found is not None
+        assert found.name == "PixelPal"
+        # Case-DIFFERENT: NOT a match (case-sensitive)
+        assert storage.find_project_by_exact_name("pixelpal") is None
+        assert storage.find_project_by_exact_name("PIXELPAL") is None
+        # Whitespace-trimmed exact match
+        assert storage.find_project_by_exact_name("  PixelPal  ") is not None
+        # Nonexistent
+        assert storage.find_project_by_exact_name("DoesNotExist") is None
+        # Empty
+        assert storage.find_project_by_exact_name("") is None
+
     def test_list_projects(self, storage):
         projects, total = storage.list_projects()
         assert total >= 1  # fixture creates one

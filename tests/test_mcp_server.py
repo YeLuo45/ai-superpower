@@ -177,16 +177,28 @@ class TestProjectTools:
         assert p["name"] == "New MCP Project"
         assert "id" in p
 
-    def test_create_project_duplicate_raises(self, mcp_config, mcp_storage):
+    def test_create_project_duplicate_exact_match_returns_existing(self, mcp_config, mcp_storage):
+        """Exact-name duplicate returns the existing project (boss preference 2026-06-10)."""
         from ai_superpower.mcp_server import create_project
+        # Fixture creates "Test Project"; exact same name should return existing
+        result = create_project(name="Test Project", api_key=mcp_config.key)
+        assert result["_existing"] is True
+        assert result["name"] == "Test Project"
+        assert result["_note"]  # explains the return
+
+    def test_create_project_duplicate_case_insensitive_raises(self, mcp_config, mcp_storage):
+        """Case-DIFFERENT name still triggers the case-insensitive duplicate guard."""
+        from ai_superpower.mcp_server import create_project
+        # Different casing is NOT exact match, but IS case-insensitive duplicate → raises
         with pytest.raises(ValueError, match="Duplicate project"):
-            create_project(name="Test Project", api_key=mcp_config.key)
+            create_project(name="test project", api_key=mcp_config.key)  # lowercase
 
     def test_create_project_duplicate_force(self, mcp_config, mcp_storage):
         from ai_superpower.mcp_server import create_project
-        # Same name but force=True should succeed
+        # force=True bypasses ALL duplicate checks (exact AND case-insensitive)
         p = create_project(name="Test Project", force=True, api_key=mcp_config.key)
         assert p["name"] == "Test Project"
+        assert p["_existing"] is False  # force=True always creates new
 
     def test_update_project(self, mcp_config, mcp_storage):
         from ai_superpower.mcp_server import update_project, get_project

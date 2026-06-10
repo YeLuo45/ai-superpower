@@ -194,6 +194,32 @@ class CSVStorage:
                             }
         return None
 
+    def find_project_by_exact_name(self, name: str) -> Optional[Project]:
+        """Find a project whose name matches ``name`` EXACTLY (case-sensitive,
+        no stripping beyond trimming whitespace).
+
+        Unlike ``check_project_duplicate`` which is case-INSENSITIVE, this
+        is for the create_project flow where boss wants exact match:
+        if a project named exactly ``"MyProject"`` exists, return it; if
+        only ``"myproject"`` exists (case-different), return None and let
+        the caller create a new one.
+
+        Returns ``None`` if no exact match.
+        """
+        if not name:
+            return None
+        target = name.strip()
+        if not target:
+            return None
+        with self._lock_file(self.config.projects_csv, "shared"):
+            with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    existing = (row.get("name") or "").strip()
+                    if existing == target:
+                        return Project(**row)
+        return None
+
     def create_project(
         self,
         name: str,
@@ -211,6 +237,10 @@ class CSVStorage:
         ``ValueError("Duplicate project: name=... existing_id=...")`` (or
         ``... git_repo=...``) and no CSV write or audit entry is produced.
         Pass ``force=True`` to bypass duplicate detection.
+
+        For EXACT-name-match lookup before creation, use
+        ``find_project_by_exact_name(name)`` first (or call the MCP
+        ``create_project`` tool which does this for you).
         """
         if not force:
             dup = self.check_project_duplicate(name=name, git_repo=git_repo)

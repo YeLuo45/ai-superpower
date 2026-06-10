@@ -112,18 +112,40 @@ def create_project(
     force: bool = False,
     api_key: Optional[str] = None,
 ) -> dict:
-    """Create a new project. Returns the created project.
+    """Create a new project. Returns the created (or pre-existing) project.
 
-    Raises ValueError on duplicate (name or git_repo); pass force=True to override.
+    Behavior (boss preference 2026-06-10):
+    - First checks for an EXACT (case-sensitive) name match.
+    - If an exact-name match exists, returns the existing project with
+      ``_existing: true`` (NOT a new ID). The existing project's ``id`` is
+      returned so the caller can use it directly.
+    - If no exact match, performs standard case-insensitive duplicate
+      check (name or git_repo). A duplicate raises ``ValueError``.
+    - Pass ``force=True`` to bypass all duplicate detection (always create new).
     """
     _check_auth(api_key)
     from .config import load_config
     storage = _storage_instance(load_config())
-    p = storage.create_project(
+
+    # Exact-name match short-circuit (boss preference, case-sensitive)
+    if not force:
+        existing = storage.find_project_by_exact_name(name)
+        if existing is not None:
+            result = _to_dict(existing)
+            result["_existing"] = True
+            result["_note"] = (
+                f"Project with exact name {name!r} already exists; "
+                f"returning existing project id {existing.id}"
+            )
+            return result
+
+    project = storage.create_project(
         name=name, git_repo=git_repo, local_path=local_path,
         description=description, prj_url=prj_url, force=force,
     )
-    return _to_dict(p)
+    result = _to_dict(project)
+    result["_existing"] = False
+    return result
 
 
 @mcp.tool()
@@ -451,31 +473,16 @@ def get_sync_status(api_key: Optional[str] = None) -> dict:
 def make_asgi_app() -> "Starlette":
     """Return the ASGI app for Streamable HTTP transport (mount at /mcp).
 
-    Wraps FastMCP's streamable_http_app() with an additional lifespan that
-    manually runs the session manager. This is required when the app is
-    mounted as a sub-app of a parent FastAPI/Starlette app — without the
-    explicit lifespan, the parent never triggers the inner session manager
-    and the first request fails with "Task group is not initialized".
+    The inner Starlette's own lifespan runs the session manager. When
+    mounted as a sub-app of a parent FastAPI, the lifespan IS triggered
+    by Starlette on the first request (the Mount wrapper runs it as part
+    of sub-app startup). For stdio usage, `mcp.run(transport='stdio')`
+    handles lifespan directly.
+
+    See `references/mcp-connection-troubleshooting.md` § 3 for details on
+    the mount+sub-app lifespan interaction.
     """
-    from contextlib import asynccontextmanager
-    from starlette.applications import Starlette
-
-    inner = mcp.streamable_http_app()
-    # Ensure the session manager exists (streamable_http_app is supposed to
-    # lazily create it, but when called as a sub-app the lifespan may not
-    # run — force initialization up front).
-    if mcp._session_manager is None:  # pragma: no cover
-        _ = mcp.session_manager
-
-    @asynccontextmanager
-    async def combined_lifespan(app):
-        # Run the inner session manager in a background task group
-        async with mcp._session_manager.run():
-            yield
-
-    # Replace the lifespan on the inner app with our combined one
-    inner.router.lifespan_context = combined_lifespan
-    return inner
+    return mcp.streamable_http_app()
 
 
 def main_stdio() -> None:
