@@ -18,6 +18,7 @@
         <div class="page-header">
             <h1>Projects</h1>
             <button onclick="showProjectForm()">+ New Project</button>
+            <button onclick="showDuplicatesModal()" class="secondary">🔍 Scan Duplicates</button>
         </div>
         <div class="search-bar">
             <input type="text" id="search" placeholder="Search projects..." oninput="loadProjects(1)">
@@ -51,6 +52,27 @@
                 <button type="submit">Save</button>
                 <button type="button" onclick="checkDuplicateProject()">Check Duplicate</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Merge Duplicate Modal -->
+    <div id="duplicates-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 900px;">
+            <span class="close" onclick="closeDuplicatesModal()">&times;</span>
+            <h2>🔍 Duplicate Project Scanner</h2>
+            <p style="color: var(--text-secondary, #666); font-size: 0.9em;">
+                Scan finds projects with the same name (case-insensitive by default).
+                Pick a <b>target</b> (canonical) and <b>source</b> (to absorb &amp; delete)
+                for each group, then merge.
+            </p>
+            <div style="margin: 12px 0;">
+                <label style="margin-right: 12px;">
+                    <input type="checkbox" id="dup-case-insensitive" checked>
+                    Case-insensitive (group <code>MyProj</code> + <code>myproj</code>)
+                </label>
+                <button onclick="scanDuplicates()" class="secondary">🔄 Re-scan</button>
+            </div>
+            <div id="duplicates-list">Click "Re-scan" to load...</div>
         </div>
     </div>
 
