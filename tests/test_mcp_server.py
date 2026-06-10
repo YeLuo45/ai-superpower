@@ -642,15 +642,16 @@ class TestToolRegistration:
             "set_api_key",
             "list_projects", "get_project", "create_project", "update_project",
             "delete_project", "check_project_duplicate",
+            "scan_duplicate_projects", "merge_projects",  # 2026-06-10 legacy data dedup
             "list_proposals", "get_proposal", "create_proposal",
             "update_proposal_status", "update_proposal_fields", "delete_proposal",
             "merge_proposals_by_project",
             "get_audit", "get_stats",
             "get_sync_config", "update_sync_config", "export_sync", "get_sync_status",
         }
-        # 19 main + set_api_key helper = 20
+        # 21 main + set_api_key helper = 22
         assert set(tools) == expected
-        assert len(tools) == 20
+        assert len(tools) == 22
 
     def test_list_tools_returns_schemas(self):
         from ai_superpower.mcp_server import mcp
@@ -821,7 +822,7 @@ mcp.run(transport="stdio")
             assert "result" in resp
             assert "tools" in resp["result"]
             # 19 main + set_api_key = 20
-            assert len(resp["result"]["tools"]) == 20
+            assert len(resp["result"]["tools"]) == 22
         finally:
             try:
                 proc.stdin.close()

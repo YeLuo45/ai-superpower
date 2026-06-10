@@ -309,6 +309,57 @@ def delete_proposal(proposal_id: str, api_key: Optional[str] = None) -> dict:
 
 
 @mcp.tool()
+def scan_duplicate_projects(
+    case_insensitive: bool = True,
+    api_key: Optional[str] = None,
+) -> list[dict]:
+    """Scan existing projects for duplicate names (legacy data deduplication).
+
+    Returns groups of projects sharing the same name (case-insensitive by default).
+    Each group: {"name": "...", "count": N, "projects": [{id, name, ...}, ...]}.
+    Only groups with >= 2 projects are returned.
+
+    Typical workflow:
+        1. Call this tool to find duplicates
+        2. Pick the "target" (older / canonical project) and "source" (newer / typo)
+        3. Call `merge_projects(target_id=..., source_id=..., delete_source=True)`
+           to move proposals and delete source
+    """
+    _check_auth(api_key)
+    from .config import load_config
+    storage = _storage_instance(load_config())
+    return storage.scan_duplicate_projects(case_insensitive=case_insensitive)
+
+
+@mcp.tool()
+def merge_projects(
+    target_id: str,
+    source_id: str,
+    delete_source: bool = True,
+    api_key: Optional[str] = None,
+) -> dict:
+    """Merge source_project INTO target_project.
+
+    Steps (boss preference 2026-06-10):
+    1. Move ALL proposals of source → target (project_id field rewritten,
+       all other fields preserved including status, stage, notes)
+    2. Audit each merged proposal's project_id change
+    3. If delete_source=True: remove source project from projects.csv
+
+    Returns: {"target_id", "source_id", "merged_proposals", "merged_proposal_ids",
+              "deleted_source"}.
+
+    Raises ValueError if target_id == source_id, target not found, or source not found.
+    """
+    _check_auth(api_key)
+    from .config import load_config
+    storage = _storage_instance(load_config())
+    return storage.merge_projects(
+        target_id=target_id, source_id=source_id, delete_source=delete_source,
+    )
+
+
+@mcp.tool()
 def merge_proposals_by_project(
     target_project_id: str,
     source_project_name: str,

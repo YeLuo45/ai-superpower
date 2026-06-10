@@ -164,6 +164,18 @@ def create_project(data: ProjectCreate, force: bool = Query(False), _ak: str = H
     errors = s.validate_project(data.model_dump())
     if errors:
         raise HTTPException(status_code=400, detail="\n".join(errors))
+    # Exact-name short-circuit (boss preference 2026-06-10)
+    if not force:
+        existing = s.find_project_by_exact_name(data.name)
+        if existing is not None:
+            from fastapi.responses import JSONResponse
+            payload = existing.model_dump()
+            payload["_existing"] = True
+            payload["_note"] = (
+                f"Project with exact name {data.name!r} already exists; "
+                f"returning existing project id {existing.id}"
+            )
+            return JSONResponse(status_code=200, content=payload)
     try:
         return s.create_project(
             name=data.name,
@@ -185,6 +197,48 @@ def create_project(data: ProjectCreate, force: bool = Query(False), _ak: str = H
                 detail=msg,
             )
         raise HTTPException(status_code=409, detail=msg)
+
+
+@app.get("/api/projects/duplicates")
+def list_duplicate_projects(
+    case_insensitive: bool = Query(True),
+    _ak: str = Header(..., alias="X-API-Key"),
+):
+    """Scan existing projects for duplicate names (case-insensitive by default).
+
+    Returns: [{"name": "...", "count": N, "projects": [{id, name, git_repo, ...}, ...]}, ...]
+    """
+    s = get_storage()
+    return s.scan_duplicate_projects(case_insensitive=case_insensitive)
+
+
+class MergeProjectsRequest(BaseModel):
+    target_id: str
+    source_id: str
+    delete_source: bool = True
+
+
+@app.post("/api/projects/merge")
+def merge_projects_endpoint(
+    body: MergeProjectsRequest,
+    _ak: str = Header(..., alias="X-API-Key"),
+):
+    """Merge source project INTO target project.
+
+    Steps:
+    1. Move all proposals from source → target (project_id field rewritten)
+    2. Audit each proposal's project_id change
+    3. If delete_source=True: remove source project from projects.csv
+    """
+    s = get_storage()
+    try:
+        return s.merge_projects(
+            target_id=body.target_id,
+            source_id=body.source_id,
+            delete_source=body.delete_source,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.get("/api/projects/check-duplicate")

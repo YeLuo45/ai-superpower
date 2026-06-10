@@ -289,6 +289,159 @@ class CSVStorage:
         self._audit("CREATE", "project", new_id, checksum_after=sha_after)
         return new_project
 
+    def scan_duplicate_projects(
+        self,
+        case_insensitive: bool = True,
+        min_count: int = 2,
+    ) -> list[dict]:
+        """Scan existing projects for duplicate names.
+
+        Returns a list of duplicate groups. Each group has::
+
+            {
+                "key": "<normalized key (lowercase if case_insensitive)>",
+                "name": "<the first-seen display name>",
+                "count": <int>,
+                "projects": [
+                    {"id": "PRJ-...", "name": "...", "git_repo": "...",
+                     "create_at": "...", "last_update": "...", "proposal_count": ...},
+                    ...
+                ]
+            }
+
+        Only groups with >= ``min_count`` projects are returned (default 2).
+        Projects with empty/whitespace-only names are excluded from grouping.
+
+        Use ``case_insensitive=False`` to detect exact-name duplicates only
+        (case-sensitive). The default True is the typical "find typos" scan.
+        """
+        with self._lock_file(self.config.projects_csv, "shared"):
+            with open(self.config.projects_csv, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+
+        groups: dict[str, list[dict]] = {}
+        first_seen_name: dict[str, str] = {}
+        for row in rows:
+            raw_name = (row.get("name") or "").strip()
+            if not raw_name:
+                continue
+            key = raw_name.lower() if case_insensitive else raw_name
+            if key not in groups:
+                first_seen_name[key] = raw_name
+            groups.setdefault(key, []).append(row)
+
+        result = []
+        for key, items in groups.items():
+            if len(items) >= min_count:
+                result.append({
+                    "key": key,
+                    "name": first_seen_name[key],
+                    "count": len(items),
+                    "projects": [
+                        {
+                            "id": r.get("id", ""),
+                            "name": r.get("name", ""),
+                            "git_repo": r.get("git_repo", ""),
+                            "create_at": r.get("create_at", ""),
+                            "last_update": r.get("last_update", ""),
+                            "proposal_count": int(r.get("proposal_count") or 0),
+                        }
+                        for r in items
+                    ],
+                })
+        # Sort by count desc, then by name for stable output
+        result.sort(key=lambda g: (-g["count"], g["name"]))
+        return result
+
+    def merge_projects(
+        self,
+        target_id: str,
+        source_id: str,
+        delete_source: bool = True,
+    ) -> dict:
+        """Merge source_project into target_project.
+
+        Steps (boss preference 2026-06-10):
+        1. Validate both projects exist; target_id != source_id
+        2. Move ALL proposals of source → target (rewrites project_id field,
+           preserves all other fields including status, stage, notes)
+        3. Audit each merged proposal's project_id change
+        4. If delete_source=True: remove source row from projects.csv
+           (safe because all proposals now point to target_id)
+        5. Audit each field of the deleted source project
+
+        Returns::
+            {
+                "target_id": "PRJ-...",
+                "source_id": "PRJ-...",
+                "merged_proposals": <int>,
+                "merged_proposal_ids": ["P-...", ...],
+                "deleted_source": <bool>,
+            }
+
+        Raises ``ValueError`` if:
+        - target_id == source_id
+        - target_id not found
+        - source_id not found
+        """
+        if target_id == source_id:
+            raise ValueError("target_id and source_id cannot be the same")
+
+        target = self.get_project(target_id)
+        if target is None:
+            raise ValueError(f"Target project not found: {target_id}")
+        source = self.get_project(source_id)
+        if source is None:
+            raise ValueError(f"Source project not found: {source_id}")
+
+        # Step 1: Read all proposals
+        with self._lock_file(self.config.proposals_csv, "shared"):
+            with open(self.config.proposals_csv, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+
+        merged_ids: list[str] = []
+        today = datetime.now().strftime("%Y-%m-%d")
+        for row in rows:
+            if (row.get("project_id") or "") == source_id:
+                row["project_id"] = target_id
+                row["last_update"] = today
+                merged_ids.append(row.get("id", ""))
+
+        # Step 2: Write back proposals (only if anything changed)
+        sha_after_proposals = None
+        if merged_ids:
+            with self._lock_file(self.config.proposals_csv, "exclusive"):
+                with open(self.config.proposals_csv, "w", encoding="utf-8", newline="") as f:
+                    writer = csv.DictWriter(f, fieldnames=PROPOSALS_CSV_HEADERS)
+                    writer.writeheader()
+                    writer.writerows(rows)
+                sha_after_proposals = self._sha256(self.config.proposals_csv)
+
+            # Audit each merged proposal
+            for pid in merged_ids:
+                self._audit(
+                    "UPDATE", "proposal", pid,
+                    field="project_id",
+                    old=source_id, new=target_id,
+                    checksum_after=sha_after_proposals,
+                )
+
+        # Step 3: Delete source project (now has 0 proposals because we moved them all)
+        deleted_source = False
+        if delete_source:
+            # delete_project refuses if proposals exist — after our move it has 0
+            deleted_source = self.delete_project(source_id)
+
+        return {
+            "target_id": target_id,
+            "source_id": source_id,
+            "merged_proposals": len(merged_ids),
+            "merged_proposal_ids": merged_ids,
+            "deleted_source": deleted_source,
+        }
+
     def update_project(self, project_id: str, updates: dict) -> Optional[Project]:
         """Update project fields (partial update, field-level audit)."""
         with self._lock_file(self.config.projects_csv, "shared"):
@@ -331,7 +484,6 @@ class CSVStorage:
 
     def delete_project(self, project_id: str) -> bool:
         """Delete a project. Fails if it has proposals."""
-        # Check for proposals first
         proposals, _ = self.list_proposals(page=1, page_size=1, project_id=project_id)
         if proposals:
             raise ValueError(f"Project {project_id} has proposals, cannot delete")
